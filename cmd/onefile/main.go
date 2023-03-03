@@ -137,7 +137,7 @@ func addEntry() http.Handler {
 		}
 		// s := "title: " + r.FormValue("title") + " body: " + r.FormValue("body")
 
-		http.Redirect(w, r, "/foo", 301)
+		http.Redirect(w, r, "/foo", http.StatusSeeOther)
 	})
 }
 

@@ -45,7 +45,7 @@ services:
 
     restart: unless-stopped
     ports:
-      - "5050:80"
+      - "5051:80"
 
   cache:
     hostname: cache-dev

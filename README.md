@@ -27,3 +27,9 @@ Playspace for golang expriments, code snippets and go tooling.
 
 - move to single file server with login: <https://github.com/benhoyt/simplelists/blob/master/server.go>
   - has csrf, delete button + confirm, sql init, insert & update queries,
+
+```
+go run github.com/raokrutarth/golang-playspace/cmd/withauth
+docker exec -it gops-dev-db env
+docker exec -it gops-dev-db psql -U app -d gops_db
+```

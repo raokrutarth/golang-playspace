@@ -27,13 +27,13 @@ services:
   db:
     hostname: db-dev
     container_name: gops-dev-db
-    image: postgres:12.12-alpine
+    image: postgres:12.12
     volumes:
-      - pg_data:/var/lib/postgresql/data
+      - ./data/pg:/var/lib/postgresql/data
     environment:
       POSTGRES_USER: app
-      POSTGRES_DB: archive_db
-      POSTGRES_PASSWORD: "4khyw"
+      POSTGRES_DB: gops_db
+      POSTGRES_PASSWORD: qrh4BRgUKJmemeP6DKoZh2WReplHmKshBvYLgxS34ABgFxeFtdz30jb8
     restart: unless-stopped
 
   db-admin:
@@ -42,7 +42,6 @@ services:
     environment:
       PGADMIN_DEFAULT_EMAIL: dev@gops.dev.com
       PGADMIN_DEFAULT_PASSWORD: 6et3l32qLwEGlIb9HsNjJ14nSZEALLhVBIwu1L3eGWw
-
     restart: unless-stopped
     ports:
       - "5051:80"

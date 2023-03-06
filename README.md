@@ -25,11 +25,23 @@ Playspace for golang expriments, code snippets and go tooling.
 
 ## TODOs
 
-- move to single file server with login: <https://github.com/benhoyt/simplelists/blob/master/server.go>
-  - has csrf, delete button + confirm, sql init, insert & update queries,
+- add cookie for session id, username.
+- add pg store implementation CRUD.
+- define template modules for summary, chart, expanded.
 
 ```
 go run github.com/raokrutarth/golang-playspace/cmd/withauth
 docker exec -it gops-dev-db env
-docker exec -it gops-dev-db psql -U app -d gops_db
+docker exec -it gops-dev-db psql -U app -d gops_db -c "\dS public.*"
+
+psql -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+psql -c "select * from range_transactions"
+
+```
+
+```
+                    <!-- <div class="input-field col s5">
+                        <input placeholder="{{.Prefill.Now}}" id="simulation_start" type="text" class="datepicker">
+                        <label for="simulation_start">Simulation Start</label>
+                    </div> -->
 ```

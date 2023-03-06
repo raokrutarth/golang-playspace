@@ -114,6 +114,7 @@ type Server struct {
 }
 
 type Repository interface {
+	AddUser(ID uuid.UUID, username, passwordHash, passwordSalt string) error
 	GetUser(username string) (*User, error)
 	CreateSignInSession(username string) (string, error)
 	IsSignInTokenValid(username string, token string) (bool, error)
@@ -121,8 +122,8 @@ type Repository interface {
 
 	GetRangeTransactions(userID, simulationID uuid.UUID) ([]RangeTransaction, error)
 	AddRangeTransaction(
-		userID, simulationID uuid.UUID,
-		incomeOrExpense, category, notes string,
+		ID, userID, simulationID uuid.UUID,
+		title, incomeOrExpense, category, notes string,
 		recurrenceEveryDays int,
 		recurrenceStart, recurrenceEnd time.Time,
 		amount float64,
@@ -135,7 +136,7 @@ type Repository interface {
 		recurrenceEnd time.Time,
 	) error
 
-	GetExpandedTransactions(userID, simulationID uuid.UUID) ([]ExpandedTransaction, error)
+	GetExpandedTransactions(rTxns []RangeTransaction) ([]ExpandedTransaction, error)
 	DeleteExpandedTransaction(userID, simulationID, expandedTransactionID uuid.UUID) error
 }
 
@@ -167,6 +168,8 @@ func (s *Server) addRoutes() {
 	// s.mux.HandleFunc("/healthz", healthz())
 	s.mux.HandleFunc("/sign-in", csrf(s.signIn))
 	s.mux.HandleFunc("/sign-out", s.signedIn(csrf(s.signOut)))
+	s.mux.HandleFunc("/demo", s.home)
+
 	s.mux.HandleFunc("/simulation/", s.signedIn(s.showList))
 	s.mux.HandleFunc("/add-range-transaction", s.signedIn(csrf(s.createList)))
 	s.mux.HandleFunc("/delete-range-transaction", s.signedIn(csrf(s.deleteList)))
@@ -258,15 +261,111 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 
-	isSignedIn := s.isSignedIn(r)
-	fmt.Fprintf(w, "signed in: %t", isSignedIn)
+	uuidSample1, err := uuid.FromString(
+		"dd94434f-ed0b-4837-ac63-205da7dae1c0",
+	)
+	if err != nil {
+		s.logger.Fatal().Msgf("uer uuid search failed with error %s", err)
+	}
+	uuidSample2, _ := uuid.NewV4()
+	uuidSample3, _ := uuid.NewV4()
+	uuidSample4, _ := uuid.NewV4()
+	uuidSample5, _ := uuid.NewV4()
+
+	s.repository.AddUser(
+		uuidSample1,
+		"demo-manual-del-me@t.com",
+		"foobar",
+		"abcd",
+	)
+
+	rangeTxns := []RangeTransaction{
+		{
+			ID:                  uuidSample3,
+			SimulationID:        uuidSample2,
+			UserID:              uuidSample1,
+			Title:               "Walmart San Jose/CA",
+			IncomeOrExpense:     "expense",
+			Category:            "Personal Expenses",
+			Notes:               "Bought groceries",
+			RecurrenceEveryDays: 7,
+			RecurrenceStart:     time.Now(),
+			RecurrenceEnd:       time.Now().AddDate(0, 0, 30),
+			Amount:              50.0,
+		},
+		{
+			ID:                  uuidSample4,
+			SimulationID:        uuidSample2,
+			UserID:              uuidSample1,
+			Title:               "GE paycheck ACH",
+			IncomeOrExpense:     "income",
+			Category:            "Salary",
+			Notes:               "Received monthly salary",
+			RecurrenceEveryDays: 30,
+			RecurrenceStart:     time.Now().AddDate(0, -1, 0),
+			RecurrenceEnd:       time.Now().AddDate(0, 3, 0),
+			Amount:              5000.0,
+		},
+		{
+			ID:                  uuidSample5,
+			SimulationID:        uuidSample2,
+			UserID:              uuidSample1,
+			Title:               "Side Business Investment",
+			IncomeOrExpense:     "expense",
+			Category:            "Business expenses",
+			Notes:               "expenses to start side business",
+			RecurrenceEveryDays: 15,
+			RecurrenceStart:     time.Now().AddDate(0, -1, 0),
+			RecurrenceEnd:       time.Now().AddDate(0, 7, 0),
+			Amount:              725.0,
+		},
+	}
+
+	expTxns, _ := s.repository.GetExpandedTransactions(rangeTxns)
+
+	segTxns := []SegmentedTransaction{}
+	netCash := float64(0)
+	for _, tx := range expTxns {
+		if tx.IncomeOrExpense == "income" {
+			netCash += tx.Amount
+		} else {
+			netCash -= tx.Amount
+		}
+		segTxns = append(segTxns, SegmentedTransaction{
+			Title:           tx.Title,
+			TransactionDate: tx.TransactionDate,
+			IncomeOrExpense: tx.IncomeOrExpense,
+			Amount:          tx.Amount,
+			NetCash:         netCash,
+		})
+	}
+	s.logger.Info().Msgf("first exptx: %+v", expTxns[0])
+
+	// s.logger.Info().Msgf("last exptx: %+v", expTxns[len(expTxns)-1])
+
+	data := WebpageState{
+		CSRFToken:             "",
+		LoginSessionToken:     "",
+		SimulationID:          uuidSample2,
+		SimulationEnd:         time.Now().AddDate(1, 0, 0),
+		RangeStart:            time.Now(),
+		RangeEnd:              time.Now().AddDate(0, 1, 0),
+		Username:              "demo-user",
+		UserID:                uuidSample1,
+		RangeTransactions:     rangeTxns,
+		SegmentedTransactions: segTxns,
+	}
+	s.logger.Info().Msg("rendering base template")
+	if err := templates.Resources.ExecuteTemplate(w, "index.html", data); err != nil {
+		s.internalError(w, "rendering template", err)
+	}
 }
 
 func (s *Server) showList(w http.ResponseWriter, r *http.Request) {
 	id := r.URL.Path[len("/simulation/"):]
 	s.logger.Info().Msgf("%d", id)
-	uuid, _ := uuid.NewV4()
-	list, err := s.repository.GetExpandedTransactions(uuid, uuid)
+	// uuid, _ := uuid.NewV4()
+	list, err := s.repository.GetExpandedTransactions([]RangeTransaction{})
 	if err != nil {
 		s.internalError(w, "fetching list", err)
 		return
@@ -369,6 +468,6 @@ func (s *Server) deleteItem(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) internalError(w http.ResponseWriter, msg string, err error) {
-	s.logger.Printf("error %s: %v", msg, err)
+	s.logger.Err(err).Msgf("Returning internal error with message %s", msg)
 	http.Error(w, "error "+msg, http.StatusInternalServerError)
 }

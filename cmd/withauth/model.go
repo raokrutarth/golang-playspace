@@ -11,21 +11,23 @@ import (
 //
 
 type User struct {
-	ID                uuid.UUID `gorm:"primarykey"`
-	Username          string    `gorm:"index;unique"`
-	PasswordHash      string
-	PasswordSalt      string
-	LoginSessionToken string `gorm:"index"`
-	RangeTransactions []RangeTransaction
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	ID                   uuid.UUID `gorm:"primarykey"`
+	Username             string    `gorm:"index;unique"`
+	PasswordHash         string
+	PasswordSalt         string
+	LoginSessionToken    string                `gorm:"index"`
+	RangeTransactions    []RangeTransaction    `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	ExpandedTransactions []ExpandedTransaction `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
 }
 
 type RangeTransaction struct {
-	ID           string    `gorm:"primarykey"`
+	ID           uuid.UUID `gorm:"primarykey"`
 	SimulationID uuid.UUID `gorm:"index"`
-	UserID       uuid.UUID `gorm:"index"`
+	UserID       uuid.UUID // FK
 
+	Title                string
 	IncomeOrExpense      string
 	Category             string
 	Notes                string
@@ -33,19 +35,20 @@ type RangeTransaction struct {
 	RecurrenceStart      time.Time
 	RecurrenceEnd        time.Time
 	Amount               float64
-	ExpandedTransactions []ExpandedTransaction `gorm:"foreignKey:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	ExpandedTransactions []ExpandedTransaction `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	CreatedAt            time.Time
 	UpdatedAt            time.Time
 }
 
 type ExpandedTransaction struct {
-	ID              uuid.UUID `gorm:"primarykey"`
-	SimulationID    uuid.UUID `gorm:"index"`
-	UserID          uuid.UUID
-	Title           string
-	TransactionDate time.Time
-	IncomeOrExpense string
-	Category        string
+	ID                 uuid.UUID `gorm:"primarykey"`
+	RangeTransactionID uuid.UUID // FK
+	UserID             uuid.UUID // FK
+	Title              string
+	TransactionDate    time.Time
+	IncomeOrExpense    string
+	Category           string
+	Amount             float64
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
@@ -60,7 +63,8 @@ type SegmentedTransaction struct {
 	Title                 string
 	TransactionDate       time.Time
 	IncomeOrExpense       string
-	Category              string
+	Amount                float64
+	NetCash               float64
 }
 
 // all the data required to render the web page
@@ -68,10 +72,14 @@ type WebpageState struct {
 	CSRFToken         string
 	LoginSessionToken string
 
-	SimulationID uuid.UUID
+	SimulationID  uuid.UUID
+	SimulationEnd time.Time
+
+	RangeStart time.Time
+	RangeEnd   time.Time
 
 	Username string
-	UserId   uuid.UUID
+	UserID   uuid.UUID
 
 	RangeTransactions     []RangeTransaction
 	SegmentedTransactions []SegmentedTransaction

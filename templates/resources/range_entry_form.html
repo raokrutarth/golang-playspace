@@ -1,0 +1,68 @@
+{{define "rangeEntryForm"}}
+
+<form action="/entry" method="POST">
+    <div class="row s12">
+
+        <div class="input-field col s5">
+            <input placeholder="{{ dayDate .SimulationEnd}}" id="simulation_start" type="text" class="datepicker">
+            <label for="simulation_end">Simulation End</label>
+        </div>
+    </div>
+    <div class="row">
+        <div class="input-field col s3">
+            <input id="title" type="text" class="validate">
+            <label for="title">Title</label>
+        </div>
+        <div class="input-field col s2">
+            <select>
+                <option value="expense" selected>Expense</option>
+                <option value="income">Income</option>
+            </select>
+            <label>Income/Expense</label>
+        </div>
+        <div class="input-field col s3">
+            <select>
+                <option value="" selected>Choose a Category</option>
+                <option value="personal expenses">Personal Expenses</option>
+                <option value="investment">Investments</option>
+                <option value="salary">Salary</option>
+                <option value="interest-payment">Interest Payments</option>
+            </select>
+            <label>Category</label>
+        </div>
+    </div>
+    <div class="row">
+        <div class="input-field col s3">
+            <input id="recurrence_every" type="number" class="validate">
+            <label for="recurrence_every">Recurrence Every (days)</label>
+        </div>
+
+        <div class="input-field col s3">
+            <input placeholder="{{dayDate .RangeStart}}" id="recurrence_start" type="text" class="datepicker">
+            <label for="recurrence_start">Recurrence Start</label>
+        </div>
+
+        <div class="input-field col s3">
+            <input placeholder="{{dayDate .RangeEnd}}" id="recurrence_end" type="text" class="datepicker">
+            <!-- <input type="date"> -->
+            <label for="recurrence_end">Recurrence End</label>
+        </div>
+    </div>
+    <div class="row">
+        <div class="input-field col s3">
+            <input id="amount" type="number" class="validate">
+            <label for="amount">Amount ($)</label>
+        </div>
+
+    </div>
+
+    <button class="btn waves-effect waves-light" type="submit" name="action">
+        <input type="submit" value="Submit">
+    </button>
+
+    <!-- <button class="btn waves-effect waves-light red accent-3">
+        <input type="reset">
+    </button> -->
+</form>
+
+{{end}}

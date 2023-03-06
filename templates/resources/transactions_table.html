@@ -1,0 +1,29 @@
+{{ define "transactionsTable" }}
+<h4>Transactions</h4>
+<table class="centered striped">
+    <thead>
+        <tr>
+            <th>TransactionDate</th>
+            <th>Title</th>
+            <th>Income/Exp</th>
+            <th>Amount</th>
+            <th>Net Cash</th>
+        </tr>
+    </thead>
+
+    <tbody>
+        {{ range .SegmentedTransactions }}
+        <tr>
+            <td>{{ dayDate .TransactionDate}}</td>
+            <td>{{ .Title }}</td>
+            <td>{{ .IncomeOrExpense }}</td>
+            <td>{{ .Amount }}</td>
+            <td>{{ .NetCash }}</td>
+            <td><a href="#!" class="secondary-content"><i class="material-icons">clear</i></a></td>
+        </tr>
+
+        {{end}}
+    </tbody>
+</table>
+
+{{end}}

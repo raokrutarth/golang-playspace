@@ -3,7 +3,6 @@
 package main
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"html/template"
@@ -15,13 +14,16 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-playground/form/v4"
+	"github.com/go-playground/validator/v10"
 	"github.com/gofrs/uuid"
 	"github.com/joho/godotenv"
 	"github.com/raokrutarth/golang-playspace/templates"
 	"github.com/rs/zerolog"
-	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/term"
 )
+
+const demoSimulationID = "22850c5a-eeee-4995-9eb0-1f6897acdc7e"
 
 func main() {
 	err := godotenv.Load("dev.env")
@@ -38,33 +40,41 @@ func main() {
 	if *addUser {
 		var password string
 		for len(password) < 6 {
-			fmt.Printf("Enter password (at least 6 chars): ")
+			fmt.Printf("Enter password (at least 6-16 chars): ")
 			b, err := term.ReadPassword(int(os.Stdin.Fd()))
 			fmt.Println()
 			exitOnError(err)
 			password = string(b)
 		}
-		// TODO add user to db
-		hash, err := GeneratePasswordHash(password)
+		newuserID, _ := uuid.NewV4()
+		salt := generateSecureToken(8)
+		hash, err := GeneratePasswordHash(password, salt)
 		exitOnError(err)
-		fmt.Printf("Password hash: %s\n", hash)
+		err = repository.AddUser(
+			newuserID,
+			os.Getenv("ADMIN_USERNAME"),
+			hash,
+			salt,
+		)
+		exitOnError(err)
+		log.Info().Msgf("added user %s with id %s", os.Getenv("ADMIN_USERNAME"), newuserID)
 		return
 	}
 
-	adminUsername, ok := os.LookupEnv("ADMIN_USERNAME")
-	if !ok {
-		exitOnError(errors.New("admin username not set"))
-	}
-	adminPasswordHash, ok := os.LookupEnv("ADMIN_PASSHASH")
-	if !ok {
-		exitOnError(errors.New("admin password hash not set"))
-	}
+	// adminUsername, ok := os.LookupEnv("ADMIN_USERNAME")
+	// if !ok {
+	// 	exitOnError(errors.New("admin username not set"))
+	// }
+	// adminPasswordHash, ok := os.LookupEnv("ADMIN_PASSHASH")
+	// if !ok {
+	// 	exitOnError(errors.New("admin password hash not set"))
+	// }
 
 	server, err := NewServer(
 		repository,
 		log,
-		adminUsername,
-		adminPasswordHash,
+		"",
+		"",
 	)
 	exitOnError(err)
 
@@ -105,8 +115,8 @@ type Server struct {
 	logger     *zerolog.Logger
 
 	// admin creds
-	username     string
-	passwordHash string
+	AdminUsername     string
+	AdminPasswordHash string
 
 	mux      *http.ServeMux
 	homeTmpl *template.Template
@@ -121,13 +131,7 @@ type Repository interface {
 	DeleteSignInToken(username string) error
 
 	GetRangeTransactions(userID, simulationID uuid.UUID) ([]RangeTransaction, error)
-	AddRangeTransaction(
-		ID, userID, simulationID uuid.UUID,
-		title, incomeOrExpense, category, notes string,
-		recurrenceEveryDays int,
-		recurrenceStart, recurrenceEnd time.Time,
-		amount float64,
-	) error
+	AddRangeTransaction(rtx *RangeTransaction) error
 	DeleteRangeTransaction(userID, simulationID, rangeTransactionID uuid.UUID) error
 
 	UpdateSimulationRange(
@@ -147,11 +151,9 @@ func NewServer(
 	passwordHash string,
 ) (*Server, error) {
 	s := &Server{
-		repository:   repository,
-		logger:       logger,
-		username:     username,
-		passwordHash: passwordHash,
-		mux:          http.NewServeMux(),
+		repository: repository,
+		logger:     logger,
+		mux:        http.NewServeMux(),
 	}
 	s.addRoutes()
 	return s, nil
@@ -168,18 +170,10 @@ func (s *Server) addRoutes() {
 	// s.mux.HandleFunc("/healthz", healthz())
 	s.mux.HandleFunc("/sign-in", csrf(s.signIn))
 	s.mux.HandleFunc("/sign-out", s.signedIn(csrf(s.signOut)))
-	s.mux.HandleFunc("/demo", s.home)
 
-	s.mux.HandleFunc("/simulation/", s.signedIn(s.showList))
-	s.mux.HandleFunc("/add-range-transaction", s.signedIn(csrf(s.createList)))
+	s.mux.HandleFunc("/add-range-transaction", s.signedIn(csrf(s.addRangeEntry)))
 	s.mux.HandleFunc("/delete-range-transaction", s.signedIn(csrf(s.deleteList)))
 	s.mux.HandleFunc("/update-simulation-range", s.signedIn(csrf(s.addItem)))
-}
-
-// TODO use this paylaod instead of reading from ctx directly
-type UserSignIn struct {
-	Username           string
-	ActiveSimulationID uuid.UUID
 }
 
 func (s *Server) signIn(w http.ResponseWriter, r *http.Request) {
@@ -189,7 +183,24 @@ func (s *Server) signIn(w http.ResponseWriter, r *http.Request) {
 	if returnURL == "" {
 		returnURL = "/"
 	}
-	if username != s.username || bcrypt.CompareHashAndPassword([]byte(s.passwordHash), []byte(password)) != nil {
+	s.logger.Info().Msgf(
+		"sign in attempt with user %s and return url %s",
+		username, returnURL,
+	)
+	user, err := s.repository.GetUser(username)
+	if err != nil {
+		s.internalError(w, "unable to get user", err)
+		return
+	}
+	s.logger.Info().Msgf("got user with id %s", user.ID)
+
+	// TODO rate-limit
+	if os.Getenv("BYPASS_LOGIN") != "true" || CheckPasswordHash(
+		user.PasswordSalt,
+		password,
+		user.PasswordHash,
+	) != nil {
+		s.logger.Info().Str("pw_bypass", os.Getenv("BYPASS_LOGIN")).Msgf("password verification failed")
 		location := "/?error=sign-in&return-url=" + url.QueryEscape(returnURL)
 		http.Redirect(w, r, location, http.StatusFound)
 		return
@@ -199,22 +210,15 @@ func (s *Server) signIn(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, "creating sign in", err)
 		return
 	}
-	cookie := &http.Cookie{
-		Name:     "session_token",
-		Value:    token,
-		MaxAge:   24 * 60 * 60,
-		Path:     "/",
-		Secure:   r.URL.Scheme == "https",
-		HttpOnly: true,
-		SameSite: http.SameSiteStrictMode,
-	}
-	http.SetCookie(w, cookie)
+	initBrowserSession(w, r, username, token)
+
+	s.logger.Info().Msgf("login success for user %s", username)
 	http.Redirect(w, r, returnURL, http.StatusFound)
 }
 
 func (s *Server) signOut(w http.ResponseWriter, r *http.Request) {
 	cookie := &http.Cookie{
-		Name:     "sign-in",
+		Name:     "session_token",
 		MaxAge:   -1,
 		Path:     "/",
 		Secure:   r.URL.Scheme == "https",
@@ -223,7 +227,15 @@ func (s *Server) signOut(w http.ResponseWriter, r *http.Request) {
 	}
 	http.SetCookie(w, cookie)
 
-	err := s.repository.DeleteSignInToken(getSignInCookie(r))
+	userLogin, err := extractUserLogin(r)
+	if err != nil {
+		s.internalError(w, "deleting sign in", err)
+		return
+	}
+
+	err = s.repository.DeleteSignInToken(
+		userLogin.Username,
+	)
 	if err != nil {
 		s.internalError(w, "deleting sign in", err)
 		return
@@ -244,10 +256,16 @@ func (s *Server) signedIn(h http.HandlerFunc) http.HandlerFunc {
 }
 
 func (s *Server) isSignedIn(r *http.Request) bool {
-	if s.username == "" {
-		return true
+	userLogin, err := extractUserLogin(r)
+	if err != nil {
+		return false
 	}
-	valid, err := s.repository.IsSignInTokenValid(getSignInCookie(r), "")
+
+	// TODO rate-limit
+	valid, err := s.repository.IsSignInTokenValid(
+		userLogin.Username,
+		userLogin.SessionToken,
+	)
 	return err == nil && valid
 }
 
@@ -259,7 +277,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.logger.Printf("%s %s %v", r.Method, r.URL.Path, time.Since(startTime))
 }
 
-func (s *Server) home(w http.ResponseWriter, r *http.Request) {
+func (s *Server) renderSimulation() WebpageState {
 
 	uuidSample1, err := uuid.FromString(
 		"dd94434f-ed0b-4837-ac63-205da7dae1c0",
@@ -355,10 +373,152 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 		RangeTransactions:     rangeTxns,
 		SegmentedTransactions: segTxns,
 	}
+	return data
+}
+
+func (s *Server) home(w http.ResponseWriter, r *http.Request) {
+	isSignedIn := s.isSignedIn(r)
+	simulationID, err := uuid.FromString(demoSimulationID)
+	if err != nil {
+		s.internalError(w, "unable to render template", err)
+		return
+	}
+
+	var allRangeTxns []RangeTransaction
+	var segTxns []SegmentedTransaction
+	if isSignedIn {
+		userLogin, err := extractUserLogin(r)
+		if err != nil {
+			s.internalError(w, "unable to get user login", err)
+			return
+		}
+		user, _ := s.repository.GetUser(userLogin.Username)
+
+		rangeTxns, err := s.repository.GetRangeTransactions(user.ID, simulationID)
+		if err != nil {
+			s.internalError(w, "unable to fetch range txns", err)
+		}
+
+		netCash := float64(0)
+		for _, rtx := range rangeTxns {
+			for _, etx := range rtx.ExpandedTransactions {
+				if etx.IncomeOrExpense == "income" {
+					netCash += etx.Amount
+				} else {
+					netCash -= etx.Amount
+				}
+				segTxns = append(segTxns, SegmentedTransaction{
+					Title:           etx.Title,
+					TransactionDate: etx.TransactionDate,
+					IncomeOrExpense: etx.IncomeOrExpense,
+					Amount:          etx.Amount,
+					NetCash:         netCash,
+				})
+			}
+
+		}
+		allRangeTxns = append(rangeTxns, bankRangeTxns...)
+	}
+
+	data := WebpageState{
+		CSRFToken:             getCSRFToken(w, r),
+		IsLoggedIn:            isSignedIn,
+		ReturnURL:             r.URL.Query().Get("return-url"),
+		SignInError:           r.URL.Query().Get("error") == "sign-in",
+		SimulationID:          simulationID,
+		SimulationEnd:         time.Now().AddDate(1, 0, 0),
+		RangeStart:            time.Now(),
+		RangeEnd:              time.Now().AddDate(0, 1, 0),
+		Username:              os.Getenv("ADMIN_USERNAME"),
+		UserID:                uuid.Nil,
+		RangeTransactions:     allRangeTxns,
+		SegmentedTransactions: segTxns,
+	}
+
+	// render the login screen
 	s.logger.Info().Msg("rendering base template")
 	if err := templates.Resources.ExecuteTemplate(w, "index.html", data); err != nil {
-		s.internalError(w, "rendering template", err)
+		s.internalError(w, "unable to render template", err)
 	}
+}
+
+func (s *Server) addRangeEntry(w http.ResponseWriter, r *http.Request) {
+	userLogin, err := extractUserLogin(r)
+	if err != nil {
+		s.internalError(w, "unable to get user login", err)
+		return
+	}
+	user, _ := s.repository.GetUser(userLogin.Username)
+
+	simulationID, err := uuid.FromString(demoSimulationID)
+	if err != nil {
+		s.internalError(w, "unable to render template", err)
+		return
+	}
+	newUUID, _ := uuid.NewV4()
+
+	if err := r.ParseForm(); err != nil {
+		s.internalError(w, "unable to parse form", err)
+		return
+	}
+
+	_ = func(timeInput string) time.Time {
+		t, err := time.Parse("Jan 02, 2006", timeInput)
+		if err != nil {
+			s.internalError(w, "unable parse time input", err)
+		}
+		return t
+	}
+
+	validate := validator.New()
+	type Form struct {
+		Title           string  `form:"title" validate:"required,alphanum,min=0,max=255"`
+		IncomeOrExpense string  `form:"income_or_expense" validate:"required,lowercase,min=0,max=255"`
+		Category        string  `form:"category" validate:"lowercase,min=0,max=255"`
+		Notes           string  `form:"notes" validate:"min=0,max=255"`
+		Amount          float64 `form:"amount" validate:"required,gt=0"`
+
+		RecurrenceEveryDays int       `form:"recurrence_every" validate:"required"`
+		RecurrenceStart     time.Time `form:"recurrence_start"`
+		RecurrenceEnd       time.Time `form:"recurrence_end"`
+	}
+
+	decoder := form.NewDecoder()
+	decoder.RegisterCustomTypeFunc(func(vals []string) (interface{}, error) {
+		return time.Parse("Jan 02, 2006", vals[0])
+	}, time.Time{})
+
+	var form Form
+	err = decoder.Decode(&form, r.PostForm)
+	if err != nil {
+		s.internalError(w, "unable to parse POST form", err)
+	}
+	err = validate.Struct(form)
+	if err != nil {
+		s.internalError(w, "unable to validate POST form", err)
+		return
+	}
+
+	transaction := &RangeTransaction{
+		ID:                  newUUID,
+		SimulationID:        simulationID,
+		UserID:              user.ID,
+		Title:               form.Title,
+		IncomeOrExpense:     form.IncomeOrExpense,
+		Category:            form.Category,
+		Notes:               form.Notes,
+		RecurrenceEveryDays: form.RecurrenceEveryDays,
+		RecurrenceStart:     form.RecurrenceStart,
+		RecurrenceEnd:       form.RecurrenceEnd,
+		Amount:              form.Amount,
+		Source:              "simulation",
+	}
+
+	if err = s.repository.AddRangeTransaction(transaction); err != nil {
+		s.internalError(w, "unable to save range tnx", err)
+		return
+	}
+	http.Redirect(w, r, "/", http.StatusFound)
 }
 
 func (s *Server) showList(w http.ResponseWriter, r *http.Request) {

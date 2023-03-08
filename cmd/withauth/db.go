@@ -54,47 +54,112 @@ func (r *PostgresDB) AddUser(ID uuid.UUID, username, passwordHash, passwordSalt 
 		PasswordHash: passwordHash,
 		PasswordSalt: passwordSalt,
 	}
-	return r.db.Clauses(clause.OnConflict{DoNothing: true}).Create(newUser).Error
+	return r.db.Clauses(clause.OnConflict{UpdateAll: true}).Create(newUser).Error
 }
 
 func (r *PostgresDB) GetUser(username string) (*User, error) {
-	return &User{}, nil
+	var user User
+	result := r.db.Where("username = ?", username).First(&user)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return &user, nil
 }
 func (r *PostgresDB) CreateSignInSession(username string) (string, error) {
-	return "", nil
-}
-func (r *PostgresDB) IsSignInTokenValid(username string, token string) (bool, error) {
-	return false, nil
-}
-func (r *PostgresDB) DeleteSignInToken(username string) error {
-	return nil
-}
-func (r *PostgresDB) GetRangeTransactions(userID, simulationID uuid.UUID) ([]RangeTransaction, error) {
-	return []RangeTransaction{}, nil
-}
-func (r *PostgresDB) AddRangeTransaction(
-	ID, userID, simulationID uuid.UUID,
-	title, incomeOrExpense, category, notes string,
-	recurrenceEveryDays int,
-	recurrenceStart, recurrenceEnd time.Time,
-	amount float64,
-) error {
-	transaction := &RangeTransaction{
-		ID:                  ID,
-		SimulationID:        simulationID,
-		UserID:              userID,
-		Title:               title,
-		IncomeOrExpense:     incomeOrExpense,
-		Category:            category,
-		Notes:               notes,
-		RecurrenceEveryDays: recurrenceEveryDays,
-		RecurrenceStart:     recurrenceStart,
-		RecurrenceEnd:       recurrenceEnd,
-		Amount:              amount,
+	token := generateSecureToken(32)
+	result := r.db.Model(&User{}).
+		Where(
+			"username = ?",
+			username,
+		).Update("login_session_token", token)
+	if result.Error != nil {
+		return "", result.Error
 	}
-	// TODO remove this caluse
-	result := r.db.Clauses(clause.OnConflict{DoNothing: true}).Create(transaction)
+	return token, nil
+}
+
+func (r *PostgresDB) IsSignInTokenValid(username string, token string) (bool, error) {
+	var user User
+	result := r.db.Where(
+		"username = ? AND login_session_token = ?",
+		username,
+		token,
+	).First(&user)
+	if result.Error != nil {
+		if result.Error == gorm.ErrRecordNotFound {
+			return false, nil
+		}
+		return false, result.Error
+	}
+	return true, nil
+}
+
+func (r *PostgresDB) DeleteSignInToken(username string) error {
+	result := r.db.Model(&User{}).
+		Where("username = ?", username).
+		Update("login_session_token", "")
 	return result.Error
+}
+
+func (r *PostgresDB) GetRangeTransactions(userID, simulationID uuid.UUID) ([]RangeTransaction, error) {
+	var rangeTransactions []RangeTransaction
+	result := r.db.Preload("ExpandedTransactions").
+		Where("user_id = ? AND simulation_id = ?", userID, simulationID).
+		Find(&rangeTransactions)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return rangeTransactions, nil
+}
+func (r *PostgresDB) AddRangeTransaction(rtx *RangeTransaction) error {
+	// TODO remove this caluse
+	result := r.db.Clauses(clause.OnConflict{DoNothing: true}).Create(rtx)
+	if result.Error != nil {
+		return result.Error
+	}
+
+	// FIXME memory error
+	// add the respective expanded transactions
+	var expandedTransactions []ExpandedTransaction
+	query := `
+		SELECT *
+		FROM (
+			SELECT 
+				uuid_generate_v4() as id, 
+				id as range_transaction_id, 
+				user_id, 
+				title,
+				generate_series(
+					date_trunc('day', recurrence_start),
+					date_trunc('day', recurrence_end),
+					'1 day'::interval * recurrence_every_days
+				)::date AS transaction_date,
+				income_or_expense,
+				category, 
+				amount,
+				NOW() as created_at, 
+				NOW() as updated_at
+			FROM 
+				range_transactions
+		) expanded_txns
+		ORDER BY 
+		expanded_txns.transaction_date ASC
+	`
+	if err := r.db.Raw(query).Scan(&expandedTransactions).Error; err != nil {
+		return err
+	}
+
+	result = r.db.Clauses(
+		clause.OnConflict{DoNothing: true},
+	).Create(expandedTransactions)
+
+	if result.Error != nil {
+		return result.Error
+	}
+	r.logger.Info().Msgf("added %d expanded transactions for range txn %s",
+		len(expandedTransactions), rtx.ID)
+	return nil
+
 }
 func (r *PostgresDB) DeleteRangeTransaction(userID, simulationID, rangeTransactionID uuid.UUID) error {
 	return nil
@@ -115,24 +180,14 @@ func (r *PostgresDB) GetExpandedTransactions(
 	// Fetch the first range transaction
 
 	r.logger.Info().Msg("adding range txns")
-	for _, rtx := range rTxns {
-		err := r.AddRangeTransaction(
-			rtx.ID,
-			rtx.UserID,
-			rtx.SimulationID,
-			rtx.Title,
-			rtx.IncomeOrExpense,
-			rtx.Category,
-			"",
-			rtx.RecurrenceEveryDays,
-			rtx.RecurrenceStart,
-			rtx.RecurrenceEnd,
-			rtx.Amount,
-		)
-		if err != nil {
-			r.logger.Err(err).Msg("failed to add seed range txn")
-		}
-	}
+	// for _ := range rTxns {
+	// 	err := r.AddRangeTransaction(
+	// 		nil,
+	// 	)
+	// 	if err != nil {
+	// 		r.logger.Err(err).Msg("failed to add seed range txn")
+	// 	}
+	// }
 
 	r.logger.Info().Msg("querying range txns")
 	// Query the ExpandedTransaction table using generate_series

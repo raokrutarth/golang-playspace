@@ -5,6 +5,7 @@
     <thead>
         <tr>
             <th>Title</th>
+            <th>Source</th>
             <th>Type</th>
             <th>Recurrence</th>
             <th>Amount</th>
@@ -13,8 +14,18 @@
 
     {{ range .RangeTransactions }}
     <tbody>
-        <tr>
+        {{ with (eq .Source "bank") }}
+        <tr class="purple lighten-5">
+            {{ end }}
+            {{ with (eq .Source "card") }}
+        <tr class="purple lighten-4">
+            {{ end }}
+            {{ with (eq .Source "simulation") }}
+        <tr class="purple lighten-3">
+            {{ end }}
+
             <td>{{ .Title }}</td>
+            <td>{{ .Source }}</td>
             <td>{{ .IncomeOrExpense }} ({{ .Category }})</td>
             <td>Every {{ .RecurrenceEveryDays }} days. {{ dayDate .RecurrenceStart }} to {{ dayDate .RecurrenceEnd }} </td>
             <td> ${{ .Amount }}</td>

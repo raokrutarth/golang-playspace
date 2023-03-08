@@ -1,27 +1,40 @@
 {{define "rangeEntryForm"}}
 
-<form action="/entry" method="POST">
-    <div class="row s12">
+<form action="/add-range-transaction" method="POST" enctype="application/x-www-form-urlencoded">
+    <input type="hidden" name="csrf-token" value="{{ .CSRFToken }}">
 
+    <div class="row s12">
         <div class="input-field col s5">
-            <input placeholder="{{ dayDate .SimulationEnd}}" id="simulation_start" type="text" class="datepicker">
-            <label for="simulation_end">Simulation End</label>
+            <input name="simulation_end" placeholder="{{ dayDate .SimulationEnd}}" id="date1" type="text" class="datepicker">
+            <label for="date1">Simulation End</label>
         </div>
     </div>
+
+    <div class="divider"></div>
+
+    <div class="row">
+        <div class="input-field col s12">
+            <textarea name="freeflow" placeholder="rent costs $300 every month" id="textarea1" class="materialize-textarea"></textarea>
+            <label for="textarea1">Add a hypothetical income/expense</label>
+        </div>
+    </div>
+
+    <h4>Or</h4>
+
     <div class="row">
         <div class="input-field col s3">
-            <input id="title" type="text" class="validate">
+            <input name="title" id="title" type="text" class="validate" required>
             <label for="title">Title</label>
         </div>
         <div class="input-field col s2">
-            <select>
+            <select name="income_or_expense">
                 <option value="expense" selected>Expense</option>
                 <option value="income">Income</option>
             </select>
             <label>Income/Expense</label>
         </div>
         <div class="input-field col s3">
-            <select>
+            <select name="category" required>
                 <option value="" selected>Choose a Category</option>
                 <option value="personal expenses">Personal Expenses</option>
                 <option value="investment">Investments</option>
@@ -31,38 +44,35 @@
             <label>Category</label>
         </div>
     </div>
+
     <div class="row">
         <div class="input-field col s3">
-            <input id="recurrence_every" type="number" class="validate">
+            <input name="recurrence_every" id="recurrence_every" type="number" class="validate" required>
             <label for="recurrence_every">Recurrence Every (days)</label>
         </div>
 
         <div class="input-field col s3">
-            <input placeholder="{{dayDate .RangeStart}}" id="recurrence_start" type="text" class="datepicker">
+            <input name="recurrence_start" placeholder="{{dayDate .RangeStart}}" id="recurrence_start" type="text" class="datepicker">
             <label for="recurrence_start">Recurrence Start</label>
         </div>
 
         <div class="input-field col s3">
-            <input placeholder="{{dayDate .RangeEnd}}" id="recurrence_end" type="text" class="datepicker">
+            <input name="recurrence_end" placeholder="{{dayDate .RangeEnd}}" id="recurrence_end" type="text" class="datepicker">
             <!-- <input type="date"> -->
             <label for="recurrence_end">Recurrence End</label>
         </div>
     </div>
+
     <div class="row">
         <div class="input-field col s3">
-            <input id="amount" type="number" class="validate">
+            <input name="amount" id="amount" type="number" class="validate" required>
             <label for="amount">Amount ($)</label>
         </div>
-
     </div>
 
     <button class="btn waves-effect waves-light" type="submit" name="action">
-        <input type="submit" value="Submit">
+        Submit<i class="material-icons right">send</i>
     </button>
-
-    <!-- <button class="btn waves-effect waves-light red accent-3">
-        <input type="reset">
-    </button> -->
 </form>
 
 {{end}}

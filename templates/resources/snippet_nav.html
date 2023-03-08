@@ -1,17 +1,36 @@
 {{define "navSnippet"}}
 
-<nav class="grey darken-1" role="navigation">
-    <div class="nav-wrapper container"><a id="logo-container" href="#" class="brand-logo">prototypeOne
-            Prototype</a>
-        <!-- <ul class="right hide-on-med-and-down">
-            <li><a href="#">Navbar Link</a></li>
-        </ul> -->
+<!-- https://materializecss.com/navbar.html -->
+<!-- Dropdown Structure -->
+<ul id="dropdown1" class="dropdown-content">
+    <li><a href="#!">Home Purchase</a></li>
+    <li><a href="#!">June Vacation</a></li>
+    <li><a href="#!">Home + June Vacation + Dog</a></li>
+</ul>
 
-        <!-- <ul id="nav-mobile" class="sidenav">
-            <li><a href="#">Navbar Link</a></li>
+<ul id="dropdown2" class="dropdown-content">
+    <li><a href="#!">Amex Credit (*3454)</a></li>
+    <li><a href="#!">Chase Checking (*3456)</a></li>
+    <li><a href="#!">Robinhood Brokerage (*3454)</a></li>
+</ul>
+
+<nav>
+    <div class="nav-wrapper">
+        <a href="#!" class="brand-logo">Proto Inc.</a>
+        <ul class="right hide-on-med-and-down">
+            <li><a href="#">Home</a></li>
+            <li>
+                <a class="dropdown-trigger" href="#!" data-target="dropdown2">
+                    Accounts<i class="material-icons right">arrow_drop_down</i>
+                </a>
+            </li>
+            <!-- Dropdown Trigger -->
+            <li>
+                <a class="dropdown-trigger" href="#!" data-target="dropdown1">
+                    Simulations<i class="material-icons right">arrow_drop_down</i>
+                </a>
+            </li>
         </ul>
-        <a href="#" data-target="nav-mobile" class="sidenav-trigger"><i
-                class="material-icons">menu</i></a> -->
     </div>
 </nav>
 

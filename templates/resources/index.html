@@ -1,14 +1,17 @@
 <html>
-    {{template "mainHeader" .}}
-    {{template "styleSnippet" .}}
+    {{ template "mainHeader" . }}
+    {{ template "styleSnippet" . }}
 
     <body>
-        {{template "navSnippet" .}}
+        {{ template "navSnippet" . }}
+
+        {{ if .IsLoggedIn }}
 
         <div class="row">
-            <div class="grid-example col s12 m6"></div>
+            <div class="col s5">
+                {{ template "simulationCard" .}}
+            </div>
         </div>
-
         <div class="container right">
             {{ template "rangeEntryForm" .}}
         </div>
@@ -23,7 +26,18 @@
             </div>
         </div>
 
-        {{template "snippetFooter" .}}
+        {{ else }}
+
+        <div class="row ">
+            <div class="col s4 center-align offset-m4">
+                {{ template "loginForm" . }}
+            </div>
+        </div>
+
+        {{ end }}
+
+
+        {{ template "snippetFooter" . }}
 
     </body>
 

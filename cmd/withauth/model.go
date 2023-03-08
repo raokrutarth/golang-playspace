@@ -35,6 +35,7 @@ type RangeTransaction struct {
 	RecurrenceStart      time.Time
 	RecurrenceEnd        time.Time
 	Amount               float64
+	Source               string                // bank/simulation/bank-modified/card/brokerage
 	ExpandedTransactions []ExpandedTransaction `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	CreatedAt            time.Time
 	UpdatedAt            time.Time
@@ -71,6 +72,11 @@ type SegmentedTransaction struct {
 type WebpageState struct {
 	CSRFToken         string
 	LoginSessionToken string
+	IsLoggedIn        bool
+	SignInError       bool
+
+	// redirect url
+	ReturnURL string
 
 	SimulationID  uuid.UUID
 	SimulationEnd time.Time

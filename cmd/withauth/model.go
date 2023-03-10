@@ -27,24 +27,24 @@ type RangeTransaction struct {
 	SimulationID uuid.UUID `gorm:"index"`
 	UserID       uuid.UUID // FK
 
-	Title                string
-	IncomeOrExpense      string
-	Category             string
-	Notes                string
-	RecurrenceEveryDays  int
-	RecurrenceStart      time.Time
-	RecurrenceEnd        time.Time
-	Amount               float64
-	Source               string                // bank/simulation/bank-modified/card/brokerage
-	ExpandedTransactions []ExpandedTransaction `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	CreatedAt            time.Time
-	UpdatedAt            time.Time
+	Title               string
+	IncomeOrExpense     string
+	Category            string
+	Notes               string
+	RecurrenceEveryDays int
+	RecurrenceStart     time.Time
+	RecurrenceEnd       time.Time
+	Amount              float64
+	Source              string // bank/simulation/bank-modified/card/brokerage
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
 }
 
 type ExpandedTransaction struct {
 	ID                 uuid.UUID `gorm:"primarykey"`
-	RangeTransactionID uuid.UUID // FK
-	UserID             uuid.UUID // FK
+	RangeTransactionID uuid.UUID
+	UserID             uuid.UUID `gorm:"index"` // FK
+	SimulationID       uuid.UUID `gorm:"index"`
 	Title              string
 	TransactionDate    time.Time
 	IncomeOrExpense    string
@@ -69,11 +69,10 @@ type SegmentedTransaction struct {
 }
 
 // all the data required to render the web page
-type WebpageState struct {
-	CSRFToken         string
-	LoginSessionToken string
-	IsLoggedIn        bool
-	SignInError       bool
+type HomePageState struct {
+	CSRFToken   string
+	IsLoggedIn  bool
+	SignInError bool
 
 	// redirect url
 	ReturnURL string
@@ -88,5 +87,5 @@ type WebpageState struct {
 	UserID   uuid.UUID
 
 	RangeTransactions     []RangeTransaction
-	SegmentedTransactions []SegmentedTransaction
+	SegmentedTransactions []*SegmentedTransaction
 }

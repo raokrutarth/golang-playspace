@@ -1,8 +1,8 @@
 package main
 
 import (
+	"errors"
 	"fmt"
-	"log"
 	"os"
 	"time"
 
@@ -65,6 +65,7 @@ func (r *PostgresDB) GetUser(username string) (*User, error) {
 	}
 	return &user, nil
 }
+
 func (r *PostgresDB) CreateSignInSession(username string) (string, error) {
 	token := generateSecureToken(32)
 	result := r.db.Model(&User{}).
@@ -101,24 +102,8 @@ func (r *PostgresDB) DeleteSignInToken(username string) error {
 	return result.Error
 }
 
-func (r *PostgresDB) GetRangeTransactions(userID, simulationID uuid.UUID) ([]RangeTransaction, error) {
-	var rangeTransactions []RangeTransaction
-	result := r.db.Preload("ExpandedTransactions").
-		Where("user_id = ? AND simulation_id = ?", userID, simulationID).
-		Find(&rangeTransactions)
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	return rangeTransactions, nil
-}
-func (r *PostgresDB) AddRangeTransaction(rtx *RangeTransaction) error {
-	// TODO remove this caluse
-	result := r.db.Clauses(clause.OnConflict{DoNothing: true}).Create(rtx)
-	if result.Error != nil {
-		return result.Error
-	}
-
-	// FIXME memory error
+func (r *PostgresDB) addExpandedTransactionsForRangeTransaction(rtx *RangeTransaction) error {
+	// FIXME memory error & use transaction+rollback
 	// add the respective expanded transactions
 	var expandedTransactions []ExpandedTransaction
 	query := `
@@ -128,6 +113,7 @@ func (r *PostgresDB) AddRangeTransaction(rtx *RangeTransaction) error {
 				uuid_generate_v4() as id, 
 				id as range_transaction_id, 
 				user_id, 
+				simulation_id,
 				title,
 				generate_series(
 					date_trunc('day', recurrence_start),
@@ -141,17 +127,18 @@ func (r *PostgresDB) AddRangeTransaction(rtx *RangeTransaction) error {
 				NOW() as updated_at
 			FROM 
 				range_transactions
+			WHERE
+				id = ?
 		) expanded_txns
 		ORDER BY 
-		expanded_txns.transaction_date ASC
+			expanded_txns.transaction_date ASC
 	`
-	if err := r.db.Raw(query).Scan(&expandedTransactions).Error; err != nil {
+	if err := r.db.Raw(query, rtx.ID).Scan(&expandedTransactions).Error; err != nil {
 		return err
 	}
 
-	result = r.db.Clauses(
-		clause.OnConflict{DoNothing: true},
-	).Create(expandedTransactions)
+	result := r.db.Clauses().
+		Create(expandedTransactions)
 
 	if result.Error != nil {
 		return result.Error
@@ -159,205 +146,150 @@ func (r *PostgresDB) AddRangeTransaction(rtx *RangeTransaction) error {
 	r.logger.Info().Msgf("added %d expanded transactions for range txn %s",
 		len(expandedTransactions), rtx.ID)
 	return nil
-
-}
-func (r *PostgresDB) DeleteRangeTransaction(userID, simulationID, rangeTransactionID uuid.UUID) error {
-	return nil
 }
 
-func (r *PostgresDB) UpdateSimulationRange(
-	userID, simulationID uuid.UUID,
-	recurrenceStart time.Time,
-	recurrenceEnd time.Time,
-) error {
-	return nil
+func (r *PostgresDB) AddRangeTransaction(rtx *RangeTransaction) error {
+	result := r.db.First(rtx, "id = ?", rtx.ID)
+	if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		r.logger.Warn().Msgf("ignoring insert of range txn with id %s because it exists", rtx.ID)
+		return nil
+	}
+	result = r.db.Create(rtx)
+	if result.Error != nil {
+		return result.Error
+	}
+	return r.addExpandedTransactionsForRangeTransaction(rtx)
 }
 
-func (r *PostgresDB) GetExpandedTransactions(
-	// userID, simulationID uuid.UUID,
-	rTxns []RangeTransaction,
-) ([]ExpandedTransaction, error) {
-	// Fetch the first range transaction
+func (db *PostgresDB) UpdateRangeTransaction(rangeTransactionID uuid.UUID, newValue *RangeTransaction) error {
+	tx := db.db.Begin()
 
-	r.logger.Info().Msg("adding range txns")
-	// for _ := range rTxns {
-	// 	err := r.AddRangeTransaction(
-	// 		nil,
-	// 	)
-	// 	if err != nil {
-	// 		r.logger.Err(err).Msg("failed to add seed range txn")
-	// 	}
-	// }
-
-	r.logger.Info().Msg("querying range txns")
-	// Query the ExpandedTransaction table using generate_series
-	var expandedTransactions []ExpandedTransaction
-	query := `
-		SELECT *
-		FROM (
-			SELECT 
-				uuid_generate_v4() as id, 
-				id as range_transaction_id, 
-				user_id, 
-				title,
-				generate_series(
-					date_trunc('day', recurrence_start),
-					date_trunc('day', recurrence_end),
-					'1 day'::interval * recurrence_every_days
-				)::date AS transaction_date,
-				income_or_expense,
-				category, 
-				amount,
-				NOW() as created_at, 
-				NOW() as updated_at
-			FROM 
-				range_transactions
-		) expanded_txns
-		ORDER BY 
-		expanded_txns.transaction_date ASC
-	`
-	if err := r.db.Raw(query).Scan(&expandedTransactions).Error; err != nil {
-		log.Fatalf("Failed to fetch expanded transactions: %v", err)
+	if err := tx.Error; err != nil {
+		return err
 	}
 
-	return expandedTransactions, nil
+	var rangeTx RangeTransaction
+
+	if err := tx.Where("id = ?", rangeTransactionID).First(&rangeTx).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	rangeTx.Title = newValue.Title
+	rangeTx.IncomeOrExpense = newValue.IncomeOrExpense
+	rangeTx.Category = newValue.Category
+	rangeTx.Notes = newValue.Notes
+	rangeTx.RecurrenceEveryDays = newValue.RecurrenceEveryDays
+	rangeTx.RecurrenceStart = newValue.RecurrenceStart
+	rangeTx.RecurrenceEnd = newValue.RecurrenceEnd
+	rangeTx.Amount = newValue.Amount
+
+	if err := tx.Save(&rangeTx).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// remove old expanded transactions
+	if err := tx.Where(
+		"range_transaction_id = ?",
+		rangeTransactionID,
+	).Delete(&ExpandedTransaction{}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// TODO use a transaction everywhere
+	if tx.Commit().Error != nil {
+		err := db.addExpandedTransactionsForRangeTransaction(&rangeTx)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+	return tx.Commit().Error
 }
-func (r *PostgresDB) DeleteExpandedTransaction(userID, simulationID, expandedTransactionID uuid.UUID) error {
+
+func (r *PostgresDB) DeleteRangeTransaction(userID, simulationID, rangeTransactionID uuid.UUID) error {
+	tx := r.db.Begin()
+	if err := tx.Error; err != nil {
+		return err
+	}
+
+	if err := tx.Where(
+		"id = ? AND user_id = ? AND simulation_id = ?",
+		rangeTransactionID, userID, simulationID,
+	).Delete(&RangeTransaction{}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	if err := tx.Where(
+		"range_transaction_id = ?",
+		rangeTransactionID,
+	).Delete(&ExpandedTransaction{}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit().Error
+}
+
+func (r *PostgresDB) ListRangeTransactions(userID, simulationID uuid.UUID) ([]RangeTransaction, error) {
+	var rangeTransactions []RangeTransaction
+	result := r.db.Where("user_id = ? AND simulation_id = ?", userID, simulationID).
+		Find(&rangeTransactions).
+		Order("updated_at DESC")
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return rangeTransactions, nil
+}
+
+func (r *PostgresDB) AddExpandedTransaction(etx *ExpandedTransaction) error {
+	return r.db.Save(etx).Error
+}
+
+func (r *PostgresDB) UpdateExpandedTransaction(expandedTransactionID uuid.UUID, newValue *ExpandedTransaction) error {
+	result := r.db.Model(&ExpandedTransaction{}).
+		Where("id = ?", expandedTransactionID).
+		Updates(map[string]interface{}{
+			"title":             newValue.Title,
+			"transaction_date":  newValue.TransactionDate,
+			"income_or_expense": newValue.IncomeOrExpense,
+			"category":          newValue.Category,
+			"amount":            newValue.Amount,
+			"updated_at":        time.Now(),
+		})
+
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("no record updated")
+	}
 	return nil
 }
 
-// // CreateList creates a new list with the given name, returning its ID.
-// func (r *PostgresDB) CreateList(name string) (string, error) {
-// 	id := m.makeListID(10)
-// 	// Generate time here because SQLite's CURRENT_TIMESTAMP only returns seconds.
-// 	timeCreated := time.Now().In(time.UTC).Format(time.RFC3339Nano)
-// 	_ := r.db.Exec("INSERT INTO lists (id, name, time_created) VALUES (?, ?, ?)",
-// 		id, name, timeCreated)
-// 	return id, err
-// }
+func (db *PostgresDB) DeleteExpandedTransaction(userID, simulationID, expandedTransactionID uuid.UUID) error {
+	result := db.db.Where(`id = ?`, expandedTransactionID).
+		Delete(&ExpandedTransaction{})
 
-// var listIDChars = "bcdfghjklmnpqrstvwxyz" // just consonants to avoid spelling words
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("no record deleted")
+	}
+	return nil
+}
 
-// // makeListID creates a new randomized list ID.
-// func (r *PostgresDB) makeListID(n int) string {
-// 	id := make([]byte, n)
-// 	for i := 0; i < n; i++ {
-// 		index := m.rnd.Intn(len(listIDChars))
-// 		id[i] = listIDChars[index]
-// 	}
-// 	return string(id)
-// }
+func (db *PostgresDB) ListExpandedTransactions(userID, simulationID uuid.UUID) ([]ExpandedTransaction, error) {
+	var transactions []ExpandedTransaction
+	result := db.db.Where("user_id = ? AND simulation_id = ?", userID, simulationID).
+		Find(&transactions)
 
-// // DeleteList (soft) deletes the given list (its items actually remain
-// // untouched). It's not an error if the list doesn't exist.
-// func (r *PostgresDB) DeleteList(id string) error {
-// 	_ := r.db.Exec("UPDATE lists SET time_deleted = CURRENT_TIMESTAMP WHERE id = ?", id)
-// 	return err
-// }
-
-// // GetList fetches one list and returns it, or nil if not found.
-// func (r *PostgresDB) GetList(id string) (*List, error) {
-// 	row := r.db.QueryRow(`
-// 		SELECT id, name
-// 		FROM lists
-// 		WHERE id = ? AND time_deleted IS NULL
-// 		`, id)
-// 	var list List
-// 	err := row.Scan(&list.ID, &list.Name)
-// 	if err == sql.ErrNoRows {
-// 		return nil, nil
-// 	}
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	list.Items, err = m.getListItems(id)
-// 	return &list, err
-// }
-
-// func (r *PostgresDB) getListItems(listID string) ([]*Item, error) {
-// 	rows, err := r.db.Query(`
-// 		SELECT id, description, done
-// 		FROM items
-// 		WHERE list_id = ? AND time_deleted IS NULL
-// 		ORDER BY id
-// 		`, listID)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	defer rows.Close()
-
-// 	var items []*Item
-// 	for rows.Next() {
-// 		var item Item
-// 		err = rows.Scan(&item.ID, &item.Description, &item.Done)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		items = append(items, &item)
-// 	}
-// 	return items, rows.Err()
-// }
-
-// // AddItem adds an item with the given description to a list, returning the
-// // item ID.
-// func (r *PostgresDB) AddItem(listID, description string) (string, error) {
-// 	result, err := r.db.Exec("INSERT INTO items (list_id, description) VALUES (?, ?)",
-// 		listID, description)
-// 	if err != nil {
-// 		return "", err
-// 	}
-// 	id, err := result.LastInsertId()
-// 	if err != nil {
-// 		return "", err
-// 	}
-// 	return strconv.Itoa(int(id)), nil
-// }
-
-// // UpdateDone updates the "done" flag of the given item in a list.
-// func (r *PostgresDB) UpdateDone(listID, itemID string, done bool) error {
-// 	_ := r.db.Exec("UPDATE items SET done = ? WHERE list_id = ? AND id = ?",
-// 		done, listID, itemID)
-// 	return err
-// }
-
-// // DeleteItem (soft) deletes the given item in a list.
-// func (r *PostgresDB) DeleteItem(listID, itemID string) error {
-// 	_ := r.db.Exec(`
-// 			UPDATE items
-// 			SET time_deleted = CURRENT_TIMESTAMP
-// 			WHERE list_id = ? AND id = ?
-// 		`, listID, itemID)
-// 	return err
-// }
-
-// // CreateSignIn creates a new sign-in and returns its secure ID.
-// func (r *PostgresDB) CreateSignInSession(username string) (string, error) {
-// 	id := generateSignInToken()
-// 	_ := r.db.Exec("INSERT INTO sign_ins (id) VALUES (?)", id)
-// 	return id, err
-// }
-
-// // IsSignInValid reports whether the given sign-in ID is valid.
-// func (r *PostgresDB) IsSignInValid(id string) (bool, error) {
-// 	row := r.db.QueryRow(`
-// 		SELECT 1
-// 		FROM sign_ins
-// 		WHERE id = ? AND time_created > DATETIME('NOW', '-90 DAYS')
-// 		`, id)
-// 	var dummy int
-// 	err := row.Scan(&dummy)
-// 	if err == sql.ErrNoRows {
-// 		return false, nil
-// 	}
-// 	if err != nil {
-// 		return false, err
-// 	}
-// 	return true, nil
-// }
-
-// // DeleteSignIn deletes the given sign-in. It's not an error if the sign-in
-// // doesn't exist.
-// func (r *PostgresDB) DeleteSignIn(id string) error {
-// 	_ := r.db.Exec("DELETE FROM sign_ins WHERE id = ?", id)
-// 	return err
-// }
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return transactions, nil
+}

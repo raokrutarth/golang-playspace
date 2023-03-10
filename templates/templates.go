@@ -16,6 +16,9 @@ var FuncMap = template.FuncMap{
 	"dayDate": func(t time.Time) string {
 		return t.Format("02 Jan 2006")
 	},
+	"unixTs": func(t time.Time) int64 {
+		return t.Unix()
+	},
 	"uuidStr": func(u uuid.UUID) string {
 		return u.String()
 	},

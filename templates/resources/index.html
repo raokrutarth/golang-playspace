@@ -7,13 +7,19 @@
 
         {{ if .IsLoggedIn }}
 
+        <!-- <div class="row">
+            <div class="col s5"> -->
+        {{ template "simulationCard" .}}
+        <!-- </div>
+        </div> -->
+
+        {{ template "rangeEntryForm" .}}
+
+
         <div class="row">
-            <div class="col s5">
-                {{ template "simulationCard" .}}
+            <div class="container">
+                {{ template "lineChart" . }}
             </div>
-        </div>
-        <div class="container right">
-            {{ template "rangeEntryForm" .}}
         </div>
 
         <div class="row">

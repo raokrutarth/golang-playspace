@@ -2,6 +2,14 @@
 
 Playspace for golang expriments, code snippets and go tooling.
 
+## Usage
+
+- spin up dev containers in VSCode <https://code.visualstudio.com/docs/containers/docker-compose>
+- copy and fill out the `dev.env` with `cp dev.env.example dev.env`
+- In the dev container, run `air` to start the BE.
+- May need to setup ports using the VS code "Ports" tab.
+- Open the BE on `localhost`.
+
 ## Ideas
 
 - render/serve/query a poorly served dataset

@@ -3,6 +3,10 @@
 # from the repo root.
 version: "3.3"
 
+volumes:
+  pg_data:
+
+
 services:
 
   dev:
@@ -12,7 +16,7 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ./.bash_aliases:/home/vscode/.bash_aliases
-      - ../:/home/vscode/ws
+      - ../..:/workspaces:cached
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - TZ=America/Los_Angeles
@@ -29,19 +33,14 @@ services:
     container_name: gops-dev-db
     image: postgres:12.12
     volumes:
-      - ./data/pg:/var/lib/postgresql/data
-    environment:
-      POSTGRES_USER: app
-      POSTGRES_DB: gops_db
-      POSTGRES_PASSWORD: qrh4BRgUKJmemeP6DKoZh2WReplHmKshBvYLgxS34ABgFxeFtdz30jb8
+      - pg_data:/var/lib/postgresql/data
+    env_file: .env
     restart: unless-stopped
 
   db-admin:
     container_name: gops-dev-db-admin
     image: dpage/pgadmin4:6.19
-    environment:
-      PGADMIN_DEFAULT_EMAIL: dev@gops.dev.com
-      PGADMIN_DEFAULT_PASSWORD: 6et3l32qLwEGlIb9HsNjJ14nSZEALLhVBIwu1L3eGWw
+    env_file: .env
     restart: unless-stopped
     ports:
       - "5051:80"
@@ -52,6 +51,3 @@ services:
     image: redis:alpine
     command: [ "redis-server", "--requirepass", "9JXZW7W3hznCg8dR" ]
     restart: unless-stopped
-
-volumes:
-  pg_data:

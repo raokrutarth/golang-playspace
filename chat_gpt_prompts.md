@@ -1,4 +1,4 @@
-# C GPT
+# ChatGPT
 
 ## db implementation
 

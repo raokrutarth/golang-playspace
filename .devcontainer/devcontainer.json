@@ -12,7 +12,7 @@
     ],
     // "shutdownAction": "stopCompose",
     "postCreateCommand": "go mod download && go mod tidy",
-    "workspaceFolder": "/home/vscode/ws",
+    "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
     // "overrideCommand": "",
     "extensions": [
         "golang.go",

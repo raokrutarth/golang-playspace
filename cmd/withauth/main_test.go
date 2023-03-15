@@ -121,7 +121,7 @@ func TestServer(t *testing.T) {
 		ensureRedirect(t, recorder, http.StatusFound, "/")
 	}
 
-	// Ensure list was deleted
+	// Ensure list was deleted foo
 	{
 		recorder := serve(t, server, jar, "GET", "/", nil)
 

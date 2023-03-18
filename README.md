@@ -10,21 +10,6 @@ Playspace for golang expriments, code snippets and go tooling.
 - May need to setup ports using the VS code "Ports" tab.
 - Open the BE on `localhost`.
 
-## Ideas
-
-- render/serve/query a poorly served dataset
-  - real-estate
-    - trees per city ranking.
-  - stock analysis
-  - warehouse/shipping data
-  - gov report data
-  - people correctness scores.
-- anonymous pool message board.
-  - might need research for a secure solution.
-  - needs to forget client connection identifiers like IP.
-  - no identities/usernames. RO content board.
-- timer file share app.
-
 ## Requirements
 
 - authn with idp server
@@ -32,6 +17,15 @@ Playspace for golang expriments, code snippets and go tooling.
 - has open source telemetry built in with prom, jager & loki
 
 ## References
+
+### Idea research
+
+- <https://www.capterra.com/digital-signage-software/s/free/>
+- <https://www.thesmbguide.com/free-digital-signage-software>
+- <https://www.digitalsignage.com/>
+- <https://www.g2.com/categories/digital-signage/free>
+
+### Technical References
 
 - boilerplate with authn
   - <https://github.com/karlkeefer/pngr>
@@ -55,12 +49,6 @@ Playspace for golang expriments, code snippets and go tooling.
   - <https://canvasjs.com/docs/charts/chart-types/html5-line-chart/>
   - <https://www.w3schools.com/js/js_graphics_chartjs.asp>
   - <https://developers.google.com/chart/interactive/docs/quick_start>
-
-## TODOs
-
-- add cookie for session id, username.
-- add pg store implementation CRUD.
-- define template modules for summary, chart, expanded.
 
 ## Common Commands
 

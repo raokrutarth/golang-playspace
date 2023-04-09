@@ -31,3 +31,20 @@ var (
 		template.New("any").Funcs(FuncMap).ParseFS(resources, "resources/*"),
 	)
 )
+
+// func LoadTemplates() (*template.Template, error) {
+// 	// Use the embedded filesystem to load the templates
+// 	templateFiles, err := embedFS.ReadFile("templates/index.html")
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	// Parse all the template files using ParseFS
+// 	t := template.New("")
+// 	t, err = t.ParseFS(templateFiles, "templates/**/*.html")
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	return t, nil
+// }

@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/joho/godotenv"
+	"github.com/raokrutarth/golang-playspace/templates"
 
 	// https://betterstack.com/community/guides/logging/logging-in-go/
 	"golang.org/x/exp/slog"
@@ -47,6 +48,26 @@ func main() {
 	}
 
 	app := fiber.New()
+
+	// Define a template struct to hold the data for rendering the template
+	type Template struct {
+		Title   string
+		Heading string
+		Content string
+	}
+
+	// Define a route to render the index template
+	app.Get("/", func(c *fiber.Ctx) error {
+		// Define the data for the template
+		data := Template{
+			Title:   "My Title",
+			Heading: "My Heading",
+			Content: "My Content",
+		}
+
+		// Render the template with the data
+		return templates.Resources.ExecuteTemplate(c.Response().BodyWriter(), "index.html", data)
+	})
 
 	// Just as a demo, generate a new private/public key pair on each run. See note above.
 	rng := rand.Reader

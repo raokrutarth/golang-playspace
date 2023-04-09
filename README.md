@@ -20,10 +20,11 @@ Playspace for golang expriments, code snippets and go tooling.
 
 ### Idea research
 
-- <https://www.capterra.com/digital-signage-software/s/free/>
-- <https://www.thesmbguide.com/free-digital-signage-software>
-- <https://www.digitalsignage.com/>
-- <https://www.g2.com/categories/digital-signage/free>
+- Digital signage
+  - <https://www.capterra.com/digital-signage-software/s/free/>
+  - <https://www.thesmbguide.com/free-digital-signage-software>
+  - <https://www.digitalsignage.com/>
+  - <https://www.g2.com/categories/digital-signage/free>
 
 ### Technical References
 
@@ -49,6 +50,25 @@ Playspace for golang expriments, code snippets and go tooling.
   - <https://canvasjs.com/docs/charts/chart-types/html5-line-chart/>
   - <https://www.w3schools.com/js/js_graphics_chartjs.asp>
   - <https://developers.google.com/chart/interactive/docs/quick_start>
+
+- lintint
+  - <https://gitlab.com/gitlab-org/cluster-integration/gitlab-agent/-/blob/master/.golangci.yml>
+  - <https://freshman.tech/linting-golang/>
+  - <https://github.com/kubernetes-sigs/cluster-api/blob/main/.golangci.yml>
+
+- interactive map layout:
+  - Mapbox GL JS:
+  - OpenLayers
+  - D3.js
+  - <https://deck.gl/>
+  - <https://www.react-simple-maps.io/>
+  - <https://leafletjs.com/examples/choropleth/>
+  - Datamaps
+  - Polymaps
+  - svgMap
+  - <https://github.com/mmarcon/jhere>
+  - <https://developers.google.com/chart/interactive/docs/gallery/geochart>
+  - <https://openlayers.org/doc/quickstart.html>
 
 ## Common Commands
 

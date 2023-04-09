@@ -14,3 +14,4 @@ Ideas to try build with the sample app. Each should pose a new design challenge.
   - needs to forget client connection identifiers like IP.
   - no identities/usernames. RO content board.
 - timer file share app.
+- Simple retrospective tool.

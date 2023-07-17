@@ -1,5 +1,3 @@
-// Tiny to-do list web app
-
 package main
 
 import (
@@ -19,7 +17,6 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/gofrs/uuid"
 	"github.com/joho/godotenv"
-	"github.com/raokrutarth/golang-playspace/templates"
 	"github.com/rs/zerolog"
 	"golang.org/x/term"
 )
@@ -38,6 +35,7 @@ func main() {
 	repository, err := NewPostgresDB(log)
 	exitOnError(err)
 
+	// use the application as a cli tool to add an admin user to the db
 	if *addUser {
 		var password string
 		for len(password) < 6 {
@@ -401,7 +399,7 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 
 	// render the login screen
 	s.logger.Info().Msg("rendering base template")
-	if err := templates.Resources.ExecuteTemplate(w, "index.html", data); err != nil {
+	if err := StaticResources.ExecuteTemplate(w, "index.html", data); err != nil {
 		s.internalError(w, "unable to render template", err)
 	}
 }

@@ -1,0 +1,50 @@
+<html>
+    {{ template "mainHeader" . }}
+    {{ template "styleSnippet" . }}
+
+    <body>
+        {{ template "navSnippet" . }}
+
+        {{ if .IsLoggedIn }}
+
+        <!-- <div class="row">
+            <div class="col s5"> -->
+        {{ template "simulationCard" .}}
+        <!-- </div>
+        </div> -->
+
+        {{ template "rangeEntryForm" .}}
+
+
+        <div class="row">
+            <div class="container">
+                {{ template "lineChart" . }}
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col s4">
+                {{template "summaryTable" .}}
+            </div>
+
+            <div class="col s8">
+                {{ template "transactionsTable" .}}
+            </div>
+        </div>
+
+        {{ else }}
+
+        <div class="row ">
+            <div class="col s4 center-align offset-m4">
+                {{ template "loginForm" . }}
+            </div>
+        </div>
+
+        {{ end }}
+
+
+        {{ template "snippetFooter" . }}
+
+    </body>
+
+</html>

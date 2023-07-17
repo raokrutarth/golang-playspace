@@ -73,7 +73,7 @@ Playspace for golang expriments, code snippets and go tooling.
 ## Common Commands
 
 ```bash
-go run github.com/raokrutarth/golang-playspace/cmd/withauth -add-user
+go run github.com/raokrutarth/golang-playspace/cmd/ct-prototype -add-user
 docker exec -it gops-dev-db env
 
 psql -c "\dS public.*"

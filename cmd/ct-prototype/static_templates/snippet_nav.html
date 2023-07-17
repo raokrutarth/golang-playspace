@@ -1,0 +1,39 @@
+{{define "navSnippet"}}
+
+<!-- https://materializecss.com/navbar.html -->
+<ul id="dropdown1" class="dropdown-content">
+    <li><a href="#!">Home Purchase</a></li>
+    <li><a href="#!">June Vacation</a></li>
+    <li><a href="#!">Home + June Vacation + Dog</a></li>
+</ul>
+
+<ul id="dropdown2" class="dropdown-content">
+    <li><a href="#!">Amex Credit (*3454)</a></li>
+    <li><a href="#!">Chase Checking (*3456)</a></li>
+    <li><a href="#!">Robinhood Brokerage (*3454)</a></li>
+</ul>
+
+<nav>
+    <div class="nav-wrapper deep-purple darken-3">
+        <a style="padding-left: 5%;" href="#!" class="brand-logo">Prototype Inc.</a>
+        <ul class="right hide-on-med-and-down">
+            <li><a href="#">Home</a></li>
+            <li>
+                <a href="#!">Goals</a>
+            </li>
+            <li>
+                <a class="dropdown-trigger" href="#!" data-target="dropdown2">
+                    Accounts<i class="material-icons right">arrow_drop_down</i>
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-trigger" href="#!" data-target="dropdown1">
+                    Simulations<i class="material-icons right">arrow_drop_down</i>
+                </a>
+            </li>
+        </ul>
+    </div>
+</nav>
+
+
+{{end}}

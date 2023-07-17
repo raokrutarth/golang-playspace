@@ -29,6 +29,10 @@ func generateMockTransactionPatterns(n int) []TransactionPattern {
 			IsRecurring: rand.Float32() < 0.5, // 50% chance of being recurring
 			Title:       fmt.Sprintf("title_%d", i),
 			Type:        "income",
+			// Growth: GrowthPattern{
+			// 	Value: 0.05,
+			// 	Period: "annual",
+			// }
 		}
 
 		// Set recurrence pattern for recurring TransactionPatterns

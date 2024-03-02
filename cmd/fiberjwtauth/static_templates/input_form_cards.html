@@ -1,0 +1,173 @@
+{{define "rangeEntryForm"}}
+
+<div class="row">
+    <div class="col s12">
+        <div class="col s4">
+            <div class="card chat-card">
+                <div class="card-content chat-card-content">
+                    <span class="card-title">Free Flow Chat [non-functional]</span>
+                    <div class="chat-history">
+                        <div class="chat-message sent">
+                            <p class="chat-message-text">spend $30 every month on gym membership</p>
+                        </div>
+                        <div class="chat-message received">
+                            <p class="chat-message-text">When does this $30 expense begin and end?</p>
+                        </div>
+                        <div class="chat-message sent">
+                            <p class="chat-message-text">this december and 6 months after</p>
+                        </div>
+                        <div class="chat-message received">
+                            <p class="chat-message-text">Got it!</p>
+                        </div>
+                        <div class="chat-message sent">
+                            <p class="chat-message-text">am I keeping at least $100 cash at the end of every month?</p>
+                        </div>
+                        <div class="chat-message received">
+                            <p class="chat-message-text">No. Balance drops below $100 on 5 months affter June</p>
+                        </div>
+                        <!-- Add more messages here -->
+                    </div>
+                    <form action="/add-free-flow" method="POST" enctype="multipart/form-data" class="chat-form">
+                        <input type="hidden" name="csrf-token" value="{{ .CSRFToken }}">
+                        <input type="hidden" name="simulation_id" value="{{ .SimulationID }}">
+
+                        <div class="input-field">
+                            <textarea name="message" placeholder="add a $20k car purchase in october" id="textarea1" class="materialize-textarea"></textarea>
+                            <label for="textarea1">Add a transaction or ask a question</label>
+                        </div>
+                        <button type="submit" class="btn waves-effect waves-light">Send</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col s4">
+            <div class="card">
+                <div class="card-content">
+                    <span class="card-title">Repeating</span>
+                    <form action="/add-range-transaction" method="POST" enctype="application/x-www-form-urlencoded">
+                        <input type="hidden" name="csrf-token" value="{{ .CSRFToken }}">
+
+                        <div class="input-field">
+                            <input name="title" id="title" type="text" class="validate" required>
+                            <label for="title">Title</label>
+                        </div>
+                        <div class="input-field">
+                            <select name="income_or_expense">
+                                <option value="expense" selected>Expense</option>
+                                <option value="income">Income</option>
+                            </select>
+                            <label>Income/Expense</label>
+                        </div>
+                        <!-- <div class="input-field">
+                            <select name="category">
+                                <option value="" selected>Choose a Category</option>
+                                <option value="personal expenses">Personal Expenses</option>
+                                <option value="investment">Investments</option>
+                                <option value="salary">Primary Income</option>
+                                <option value="interest-payment">Cost of Debt</option>
+                            </select>
+                            <label>Category</label>
+                        </div> -->
+                        <div class="input-field">
+                            <input name="recurrence_every" id="recurrence_every" type="number" class="validate" required>
+                            <label for="recurrence_every">Recurrence Every (days)</label>
+                        </div>
+
+                        <div class="input-field">
+                            <input name="recurrence_start" id="recurr_start" type="date">
+                            <label for="recurr_start">Recurrence Start</label>
+                        </div>
+
+                        <div class="input-field">
+                            <input name="recurrence_end" id="recurr_end" type="date" max="2050-01-01">
+                            <label for="recurr_end">Recurrence End</label>
+                        </div>
+                        <div class="input-field">
+                            <input name="amount" id="amount" type="number" class="validate" required>
+                            <label for="amount">Amount ($)</label>
+                        </div>
+                        <button class="btn waves-effect waves-light" type="submit" name="action">Add</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col s4">
+            <div class="card">
+                <div class="card-content">
+                    <span class="card-title">One-Time</span>
+                    <form action="/add-one-time-transaction" method="POST" enctype="application/x-www-form-urlencoded">
+                        <div class="input-field">
+                            <input name="title" id="title2" type="text" class="validate" required>
+                            <label for="title2">Title</label>
+                        </div>
+                        <div class="input-field">
+                            <select name="income_or_expense">
+                                <option value="expense" selected>Expense</option>
+                                <option value="income">Income</option>
+                            </select>
+                            <label>Income/Expense</label>
+                        </div>
+                        <!-- <div class="input-field">
+                            <select name="category">
+                                <option value="" selected>Choose a Category</option>
+                                <option value="personal expenses">Personal Expenses</option>
+                                <option value="investment">Investments</option>
+                                <option value="salary">Primary Income</option>
+                                <option value="interest-payment">Cost of Debt</option>
+                            </select>
+                            <label>Category</label>
+                        </div> -->
+                        <div class="input-field">
+                            <input name="transaction_date" id="date2" type="date" class="validate" required>
+                            <label for="date2">Date</label>
+                        </div>
+                        <div class="input-field">
+                            <input name="amount" id="amount2" type="text" class="validate" required>
+                            <label for="amount2">Amount ($)</label>
+                        </div>
+                        <button class="btn waves-effect waves-light" type="submit" name="action">Add</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .chat-history {
+        height: 200px;
+        overflow-y: scroll;
+    }
+
+    .chat-message {
+        margin: 10px;
+    }
+
+    .received {
+        background-color: #f1f0f0;
+        border-radius: 10px;
+        padding: 10px;
+        clear: both;
+        float: left;
+        max-width: 80%;
+    }
+
+    .sent {
+        background-color: #d8e2dc;
+        border-radius: 10px;
+        padding: 10px;
+        clear: both;
+        float: right;
+        max-width: 80%;
+    }
+
+    .chat-message-text {
+        font-size: 16px;
+        line-height: 1.4;
+        margin: 0;
+        word-wrap: break-word;
+    }
+
+</style>
+
+{{end}}

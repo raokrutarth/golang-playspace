@@ -29,7 +29,7 @@
                     </div>
                     <form action="/add-free-flow" method="POST" enctype="multipart/form-data" class="chat-form">
                         <input type="hidden" name="csrf-token" value="{{ .CSRFToken }}">
-                        <input type="hidden" name="simulation_id" value="{{ .SimulationID }}">
+                        <input type="hidden" name="planner_id" value="{{ .PlannerID }}">
 
                         <div class="input-field">
                             <textarea name="message" placeholder="add a $20k car purchase in october" id="textarea1" class="materialize-textarea"></textarea>

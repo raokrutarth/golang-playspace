@@ -5,98 +5,30 @@
     ],
     "service": "dev",
     "runServices": [
-        "dev",
-        "db"
-        // "cache"
-        // "db-admin"
+        "db",
+        "db-admin"
     ],
     // "shutdownAction": "stopCompose",
-    "postCreateCommand": "go mod download && go mod tidy",
+    // "postCreateCommand": "go mod download && go mod tidy",
     "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
     // "overrideCommand": "",
+    "forwardPorts": [
+        // prefer to setup port forwarding from vscode and not in the docker compose.
+        // "smtp-server-dev:8025" // mailpit server ui. verify with docker compose file
+    ],
+    "features": {
+        "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+    },
     "customizations": {
         "vscode": {
             "extensions": [
                 "golang.go",
+                "ms-toolsai.datawrangler",
                 "davidanson.vscode-markdownlint",
-                "ms-azuretools.vscode-docker", // Docker integration and linting
+                "ms-azuretools.vscode-docker",
                 "ms-vscode.makefile-tools",
-                "lkrms.inifmt",
-                "stkb.rewrap", // rewrap comments after n characters on one line
-                "redhat.vscode-yaml", // Kubernetes, Drone syntax highlighting
-                "ms-ossdata.vscode-postgresql", // Supports postgres, over SSL, socked
-                "msrvida.vscode-sanddance" // csv analysis,
-            ],
-            "settings": {
-                "clangd.checkUpdates": false,
-                "code-runner.enableAppInsights": false,
-                "docker-explorer.enableTelemetry": false,
-                "extensions.ignoreRecommendations": true,
-                "gitlens.showWelcomeOnInstall": false,
-                "gitlens.showWhatsNewAfterUpgrades": false,
-                "java.help.firstView": "none",
-                "java.help.showReleaseNotes": false,
-                "julia.enableTelemetry": false,
-                "kite.showWelcomeNotificationOnStartup": false,
-                "liveServer.settings.donotShowInfoMsg": true,
-                "Lua.telemetry.enable": false,
-                "material-icon-theme.showWelcomeMessage": false,
-                "pros.showWelcomeOnStartup": false,
-                "pros.useGoogleAnalytics": false,
-                "redhat.telemetry.enabled": false,
-                "rpcServer.showStartupMessage": false,
-                "shellcheck.disableVersionCheck": true,
-                "sonarlint.disableTelemetry": true,
-                "telemetry.enableTelemetry": false,
-                "telemetry.telemetryLevel": "off",
-                "terraform.telemetry.enabled": false,
-                "update.showReleaseNotes": false,
-                "vsicons.dontShowNewVersionMessage": true,
-                "workbench.welcomePage.walkthroughs.openOnInstall": false,
-                "files.eol": "\n",
-                "remote.extensionKind": {
-                    "ms-azuretools.vscode-docker": "workspace"
-                },
-                "go.useLanguageServer": true,
-                "[go]": {
-                    "editor.codeActionsOnSave": {
-                        "source.organizeImports": true
-                    }
-                },
-                "[go.mod]": {
-                    "editor.codeActionsOnSave": {
-                        "source.organizeImports": true
-                    }
-                },
-                "gopls": {
-                    "build.buildFlags": [
-                        "-tags",
-                        ""
-                    ],
-                    "usePlaceholders": false,
-                    "staticcheck": true,
-                },
-                "go.lintTool": "golangci-lint",
-                "go.lintOnSave": "package",
-                "editor.formatOnSave": true,
-                "go.toolsEnvVars": {
-                    "CGO_ENABLED": "1"
-                },
-                "go.testEnvVars": {
-                    "": ""
-                },
-                "go.testFlags": [
-                    "-v",
-                    "-race"
-                ],
-                "go.testTimeout": "10s",
-                "go.coverOnSingleTest": true,
-                "go.coverOnSingleTestFile": true,
-                "go.coverOnTestPackage": true
-            }
+                "streetsidesoftware.code-spell-checker"
+            ]
         }
-    },
-    "features": {
-        "ghcr.io/devcontainers/features/docker-from-docker:1": {}
     }
 }

@@ -10,3 +10,7 @@ the full envoirnment for app development. Ideally used with the VSCode container
 make dev-env-up
 
 ```
+
+
+## post on ticket https://github.com/cockroachdb/cockroach/issues/107416
+

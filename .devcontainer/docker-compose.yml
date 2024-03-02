@@ -1,53 +1,53 @@
 # file paths are relative to the .devcontainers directory
 # even though the docker-compose command may be run
 # from the repo root.
-version: "3.3"
-
-volumes:
-  pg_data:
-
+version: "3.8"
 
 services:
-
   dev:
-    container_name: gops-dev
     build:
       context: .
       dockerfile: Dockerfile
     volumes:
       - ./.bash_aliases:/home/vscode/.bash_aliases
       - ../..:/workspaces:cached
-      - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - TZ=America/Los_Angeles
     command: "-c 'sleep infinity'"
     restart: unless-stopped
+    logging:
+      driver: syslog
     # Required for ptrace-based debuggers like C++, Go, and Rust
-    cap_add:
-      - SYS_PTRACE
-    security_opt:
-      - seccomp:unconfined
+    # cap_add:
+    #   - SYS_PTRACE
+    # security_opt:
+    #   - seccomp:unconfined
 
   db:
-    hostname: db-dev
-    container_name: gops-dev-db
-    image: postgres:12.12
+    image: postgres:16
     volumes:
       - pg_data:/var/lib/postgresql/data
     env_file: .env
     restart: unless-stopped
+    logging:
+      driver: syslog
+      
+  # try out cockroach db: https://github.com/cockroachdb/cockroach/issues/107416#issuecomment-1648127261
 
   db-admin:
-    container_name: gops-dev-db-admin
     image: dpage/pgadmin4:6.19
     env_file: .env
     restart: unless-stopped
-    ports:
-      - "5051:80"
+    logging:
+      driver: syslog
 
   cache:
-    hostname: cache-dev
-    container_name: gops-dev-cache
     image: redis:alpine
-    command: [ "redis-server", "--requirepass", "9JXZW7W3hznCg8dR" ]
+    command: ["redis-server", "--requirepass", "9JXZW7W3hznCg8dR"]
     restart: unless-stopped
+    logging:
+      driver: syslog
+
+volumes:
+  pg_data:
+  cdb_data:

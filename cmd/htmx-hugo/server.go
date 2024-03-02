@@ -13,7 +13,7 @@ import (
 	"github.com/acaloiaro/hugo-htmx-go-template/partials"
 )
 
-//go:embed all:public
+//go:embed all:static
 var content embed.FS
 
 func main() {

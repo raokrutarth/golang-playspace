@@ -1,0 +1,50 @@
+package main
+
+import (
+	"fmt"
+	"time"
+
+	"github.com/rs/zerolog/log"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+)
+
+// GormDB The database object that can be used by middleware to get data
+var GormDB *gorm.DB
+
+// SetupDatabase - Connects the database
+func SetupDatabase(logMode bool) error {
+	DbConfig := GlobalConfig.Database
+
+	connectionString := fmt.Sprintf(
+		"host=%s port=%d user=%s dbname=%s password=%s sslmode=disable",
+		DbConfig.Hostname,
+		DbConfig.Port,
+		DbConfig.User,
+		DbConfig.Database,
+		DbConfig.Password,
+	)
+	log.Info().Str("hostname", DbConfig.Hostname).Msgf("DB Connected")
+	db, errConnect := gorm.Open(postgres.Open(connectionString), &gorm.Config{})
+	if errConnect != nil {
+		return errConnect
+	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to ")
+	}
+	sqlDB.SetMaxIdleConns(10)
+	sqlDB.SetMaxOpenConns(20)
+	sqlDB.SetConnMaxLifetime(time.Hour)
+
+	GormDB = db
+	return nil
+}
+
+func InitializeDB() {
+	if err := SetupDatabase(true); err != nil {
+		log.Fatal().Err(err).Msg("DB connection init failed with error")
+	}
+	log.Info().Msg("Running auto migrations.")
+	GormDB.AutoMigrate(Message{})
+}

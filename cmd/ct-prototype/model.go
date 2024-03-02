@@ -23,9 +23,9 @@ type User struct {
 }
 
 type RangeTransaction struct {
-	ID           uuid.UUID `gorm:"primarykey"`
-	SimulationID uuid.UUID `gorm:"index"`
-	UserID       uuid.UUID // FK
+	ID        uuid.UUID `gorm:"primarykey"`
+	PlannerID uuid.UUID `gorm:"index"`
+	UserID    uuid.UUID // FK
 
 	Title               string
 	IncomeOrExpense     string
@@ -35,7 +35,7 @@ type RangeTransaction struct {
 	RecurrenceStart     time.Time
 	RecurrenceEnd       time.Time
 	Amount              float64
-	Source              string // bank/simulation/bank-modified/card/brokerage
+	Source              string // bank/planner/bank-modified/card/brokerage
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
 }
@@ -44,7 +44,7 @@ type ExpandedTransaction struct {
 	ID                 uuid.UUID `gorm:"primarykey"`
 	RangeTransactionID uuid.UUID
 	UserID             uuid.UUID `gorm:"index"` // FK
-	SimulationID       uuid.UUID `gorm:"index"`
+	PlannerID          uuid.UUID `gorm:"index"`
 	Title              string
 	TransactionDate    time.Time
 	IncomeOrExpense    string
@@ -77,8 +77,8 @@ type HomePageState struct {
 	// redirect url
 	ReturnURL string
 
-	SimulationID  uuid.UUID
-	SimulationEnd time.Time
+	PlannerID  uuid.UUID
+	PlannerEnd time.Time
 
 	RangeStart time.Time
 	RangeEnd   time.Time

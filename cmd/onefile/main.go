@@ -10,8 +10,6 @@ import (
 	"os/signal"
 	"sync/atomic"
 	"time"
-
-	"github.com/raokrutarth/golang-playspace/templates"
 )
 
 type key int
@@ -101,7 +99,7 @@ func index() http.Handler {
 			}{time.Now().Format("Jan 02, 2006"), time.Now().Add(time.Hour * 24 * 365).Format("Jan 02, 2006")},
 		}
 		fmt.Printf("rendering data %+v\n", data)
-		if err := templates.Resources.ExecuteTemplate(w, "index.html", data); err != nil {
+		if err := StaticResources.ExecuteTemplate(w, "index.html", data); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 		// if err := templates.Resources.Execute(w, []interface{}{}); err != nil {

@@ -10,21 +10,10 @@ Playspace for golang expriments, code snippets and go tooling.
 - May need to setup ports using the VS code "Ports" tab.
 - Open the BE on `localhost`.
 
-## Requirements
+## Todo
 
-- authn with idp server
-- uses htmx for simple UI.
-- has open source telemetry built in with prom, jager & loki
 
 ## References
-
-### Idea research
-
-- Digital signage
-  - <https://www.capterra.com/digital-signage-software/s/free/>
-  - <https://www.thesmbguide.com/free-digital-signage-software>
-  - <https://www.digitalsignage.com/>
-  - <https://www.g2.com/categories/digital-signage/free>
 
 ### Technical References
 

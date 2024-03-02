@@ -28,10 +28,11 @@ var (
 
 func main() {
 
+	log.Println("starting application")
 	r := mux.NewRouter()
 
-	//db, err := gorm.Open(sqlite.Open("my-jokes.db"), &gorm.Config{})
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open("my-jokes.db"), &gorm.Config{})
+	// db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
 
 	if err != nil {
 		panic("failed to connect database")
@@ -45,7 +46,7 @@ func main() {
 	fs := http.FileServer(http.Dir("assets/"))
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
 
-	templates = template.Must(template.ParseGlob("views/*.html"))
+	templates = template.Must(template.ParseGlob("/workspaces/golang-playspace/cmd/htmx-specter/views/*.html"))
 
 	r.HandleFunc("/", indexHandler).Methods("GET")
 
@@ -111,9 +112,7 @@ func signInHandler(w http.ResponseWriter, r *http.Request) {
 	var tmpl *template.Template
 	var err error
 
-	var errors map[string]string
-
-	errors = make(map[string]string)
+	errors := make(map[string]string)
 
 	if r.Method == http.MethodPost {
 
@@ -121,15 +120,13 @@ func signInHandler(w http.ResponseWriter, r *http.Request) {
 
 		r.ParseForm()
 
-		//debug
-		//fmt.Println("login:", r.FormValue("login"))
-		//fmt.Println("password:", r.FormValue("password"))
+		// debug
+		// fmt.Println("login:", r.FormValue("login"))
+		// fmt.Println("password:", r.FormValue("password"))
 
 		login := r.FormValue("login")
 		password := r.FormValue("password")
-
 		if login == "" || password == "" || len(password) < 6 {
-
 			if login == "" {
 				errors["login"] = "Empty login "
 			}
@@ -184,12 +181,10 @@ func signInHandler(w http.ResponseWriter, r *http.Request) {
 				}
 				return
 
-			} else {
-				log.Println("RecordNotFound")
-				errors["recordNotFound"] = "Login or Password is not correct"
-				data["Errors"] = errors
 			}
-
+			log.Println("RecordNotFound")
+			errors["recordNotFound"] = "Login or Password is not correct"
+			data["Errors"] = errors
 		}
 	}
 

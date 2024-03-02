@@ -1,0 +1,48 @@
+{{ define "transactionsTable" }}
+<h4>Cash Flow</h4>
+<table class="striped highlight responsive-table z-depth-1">
+    <thead class="green lighten-4">
+        <tr>
+            <th>TransactionDate</th>
+            <th>Title</th>
+            <th>Type</th>
+            <th>Amount</th>
+            <th>Net Cash</th>
+            <th><i class="material-icons">more_vert</i></th>
+        </tr>
+    </thead>
+
+    <tbody>
+        {{ range .SegmentedTransactions }}
+        <tr>
+            <td>{{ dayDate .TransactionDate}}</td>
+            <td>{{ .Title }}</td>
+            <td>{{ .IncomeOrExpense }}</td>
+            <td>{{ .Amount }}</td>
+
+            {{ if lt .NetCash 0.0 }}
+            <td class="red"> {{ .NetCash }}</td>
+            {{ else }}
+            <td> {{ .NetCash }}</td>
+            {{ end }}
+
+
+            <td class="left">
+                <a href="#!" style="margin-left: 0px;">
+                    <i class="tiny material-icons blue-text darken-4">edit</i>
+                </a>
+                <form action="/delete-one-time-transaction" method="POST" enctype="application/x-www-form-urlencoded">
+                    <input type="hidden" name="csrf-token" value="{{ $.CSRFToken }}">
+                    <input type="hidden" name="expanded_transaction_id" value="{{ .ExpandedTransactionID }}">
+                    <button class="btn" style="padding: 0; border: none; background: none;">
+                        <i class="tiny material-icons red-text darken-4">delete</i>
+                    </button>
+                </form>
+            </td>
+        </tr>
+
+        {{end}}
+    </tbody>
+</table>
+
+{{end}}

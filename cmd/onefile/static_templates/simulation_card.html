@@ -1,0 +1,23 @@
+{{ define "simulationCard" }}
+
+<div class="row">
+    <div class="col s5 rounded">
+        <ul class="collapsible">
+            <li>
+                <div class="collapsible-header">
+                    <i class="material-icons">show_chart</i>
+                    Simulation: <strong>{{ .SimulationID }}</strong>
+                    <span class="new badge red" data-badge-caption="risk(s)">2</span>
+                    <span class="new badge blue" data-badge-caption="opportunity">1</span>
+                </div>
+                <div class="collapsible-body">
+                    <div class="chip blue white-text">$10k investable savings in July</div>
+                    <div class="chip red white-text">Low balance of $50 in April</div>
+                    <div class="chip red white-text">Spending 30% more than peers in category <strong>Dining</strong></div>
+                </div>
+            </li>
+        </ul>
+    </div>
+</div>
+
+{{ end }}

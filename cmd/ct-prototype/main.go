@@ -21,7 +21,7 @@ import (
 	"golang.org/x/term"
 )
 
-const demoSimulationID = "22850c5a-eeee-4995-9eb0-1f6897acdc7e"
+const demoPlannerID = "22850c5a-eeee-4995-9eb0-1f6897acdc7e"
 
 func main() {
 	err := godotenv.Load("dev.env")
@@ -131,13 +131,13 @@ type Repository interface {
 
 	AddRangeTransaction(rtx *RangeTransaction) error
 	UpdateRangeTransaction(rangeTransactionID uuid.UUID, newValue *RangeTransaction) error
-	DeleteRangeTransaction(userID, simulationID, rangeTransactionID uuid.UUID) error
-	ListRangeTransactions(userID, simulationID uuid.UUID) ([]RangeTransaction, error)
+	DeleteRangeTransaction(userID, plannerID, rangeTransactionID uuid.UUID) error
+	ListRangeTransactions(userID, plannerID uuid.UUID) ([]RangeTransaction, error)
 
 	AddExpandedTransaction(etx *ExpandedTransaction) error
 	UpdateExpandedTransaction(expandedTransactionID uuid.UUID, newValue *ExpandedTransaction) error
-	DeleteExpandedTransaction(userID, simulationID, expandedTransactionID uuid.UUID) error
-	ListExpandedTransactions(userID, simulationID uuid.UUID) ([]ExpandedTransaction, error)
+	DeleteExpandedTransaction(userID, plannerID, expandedTransactionID uuid.UUID) error
+	ListExpandedTransactions(userID, plannerID uuid.UUID) ([]ExpandedTransaction, error)
 }
 
 func NewServer(
@@ -283,7 +283,7 @@ func (s *Server) isSignedIn(r *http.Request) bool {
 
 func (s *Server) seedDemoData(w http.ResponseWriter, r *http.Request) {
 	var err error
-	simulationID, _ := uuid.FromString(demoSimulationID)
+	plannerID, _ := uuid.FromString(demoPlannerID)
 
 	isSignedIn := s.isSignedIn(r)
 	if !isSignedIn {
@@ -307,7 +307,7 @@ func (s *Server) seedDemoData(w http.ResponseWriter, r *http.Request) {
 
 	for _, rtx := range bankRangeTxns {
 		rtx.UserID = user.ID
-		rtx.SimulationID = simulationID
+		rtx.PlannerID = plannerID
 		err = s.repository.AddRangeTransaction(&rtx)
 		if err != nil {
 			s.internalError(w, "unable to add range seed data", err)
@@ -317,7 +317,7 @@ func (s *Server) seedDemoData(w http.ResponseWriter, r *http.Request) {
 
 	for _, etx := range bankOneTimeTxns {
 		etx.UserID = user.ID
-		etx.SimulationID = simulationID
+		etx.PlannerID = plannerID
 		err = s.repository.AddExpandedTransaction(&etx)
 		if err != nil {
 			s.internalError(w, "unable to add one time seed data", err)
@@ -331,7 +331,7 @@ func (s *Server) seedDemoData(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 	isSignedIn := s.isSignedIn(r)
-	simulationID, err := uuid.FromString(demoSimulationID)
+	plannerID, err := uuid.FromString(demoPlannerID)
 	if err != nil {
 		s.internalError(w, "unable to render template", err)
 		return
@@ -347,14 +347,14 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 		}
 		user, _ := s.repository.GetUser(userLogin.Username)
 
-		rangeTxns, err := s.repository.ListRangeTransactions(user.ID, simulationID)
+		rangeTxns, err := s.repository.ListRangeTransactions(user.ID, plannerID)
 		if err != nil {
 			s.internalError(w, "unable to fetch range txns", err)
 			return
 		}
 
 		expandedTransactions, _ := s.repository.ListExpandedTransactions(
-			user.ID, simulationID,
+			user.ID, plannerID,
 		)
 		for _, etx := range expandedTransactions {
 			segTxns = append(segTxns, &SegmentedTransaction{
@@ -387,8 +387,8 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 		IsLoggedIn:            isSignedIn,
 		ReturnURL:             r.URL.Query().Get("return-url"),
 		SignInError:           r.URL.Query().Get("error") == "sign-in",
-		SimulationID:          simulationID,
-		SimulationEnd:         time.Now().AddDate(1, 0, 0),
+		PlannerID:             plannerID,
+		PlannerEnd:            time.Now().AddDate(1, 0, 0),
 		RangeStart:            time.Now(),
 		RangeEnd:              time.Now().AddDate(0, 1, 0),
 		Username:              os.Getenv("ADMIN_USERNAME"),
@@ -412,7 +412,7 @@ func (s *Server) addRangeEntry(w http.ResponseWriter, r *http.Request) {
 	}
 	user, _ := s.repository.GetUser(userLogin.Username)
 
-	simulationID, err := uuid.FromString(demoSimulationID)
+	plannerID, err := uuid.FromString(demoPlannerID)
 	if err != nil {
 		s.internalError(w, "unable to render template", err)
 		return
@@ -478,7 +478,7 @@ func (s *Server) addRangeEntry(w http.ResponseWriter, r *http.Request) {
 
 	transaction := &RangeTransaction{
 		ID:                  newUUID,
-		SimulationID:        simulationID,
+		PlannerID:           plannerID,
 		UserID:              user.ID,
 		Title:               form.Title,
 		IncomeOrExpense:     form.IncomeOrExpense,
@@ -488,7 +488,7 @@ func (s *Server) addRangeEntry(w http.ResponseWriter, r *http.Request) {
 		RecurrenceStart:     form.RecurrenceStart,
 		RecurrenceEnd:       form.RecurrenceEnd,
 		Amount:              form.Amount,
-		Source:              "simulation",
+		Source:              "planner",
 	}
 
 	if err = s.repository.AddRangeTransaction(transaction); err != nil {
@@ -505,7 +505,7 @@ func (s *Server) deleteRangeEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user, _ := s.repository.GetUser(userLogin.Username)
-	simulationID, err := uuid.FromString(demoSimulationID)
+	plannerID, err := uuid.FromString(demoPlannerID)
 	if err != nil {
 		s.internalError(w, "unable to render template", err)
 		return
@@ -539,7 +539,7 @@ func (s *Server) deleteRangeEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id, _ := uuid.FromString(form.RangeTransactionID)
-	err = s.repository.DeleteRangeTransaction(user.ID, simulationID, id)
+	err = s.repository.DeleteRangeTransaction(user.ID, plannerID, id)
 	if err != nil {
 		s.internalError(w, "unable to delete range transaction", err)
 		return
@@ -555,7 +555,7 @@ func (s *Server) addOneTimeEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user, _ := s.repository.GetUser(userLogin.Username)
-	simulationID, err := uuid.FromString(demoSimulationID)
+	plannerID, err := uuid.FromString(demoPlannerID)
 	if err != nil {
 		s.internalError(w, "unable to render template", err)
 		return
@@ -601,7 +601,7 @@ func (s *Server) addOneTimeEntry(w http.ResponseWriter, r *http.Request) {
 		ID:                 newUUID,
 		UserID:             user.ID,
 		RangeTransactionID: uuid.Nil,
-		SimulationID:       simulationID,
+		PlannerID:          plannerID,
 		Title:              form.Title,
 		IncomeOrExpense:    form.IncomeOrExpense,
 		Category:           form.Category,
@@ -623,7 +623,7 @@ func (s *Server) deleteOneTimeEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user, _ := s.repository.GetUser(userLogin.Username)
-	simulationID, err := uuid.FromString(demoSimulationID)
+	plannerID, err := uuid.FromString(demoPlannerID)
 	if err != nil {
 		s.internalError(w, "unable to render template", err)
 		return
@@ -661,7 +661,7 @@ func (s *Server) deleteOneTimeEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id, _ := uuid.FromString(form.ExpandedTransactionID)
-	err = s.repository.DeleteExpandedTransaction(user.ID, simulationID, id)
+	err = s.repository.DeleteExpandedTransaction(user.ID, plannerID, id)
 	if err != nil {
 		s.internalError(w, "unable to add item", err)
 		return

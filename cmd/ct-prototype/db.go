@@ -113,7 +113,7 @@ func (r *PostgresDB) addExpandedTransactionsForRangeTransaction(rtx *RangeTransa
 				uuid_generate_v4() as id, 
 				id as range_transaction_id, 
 				user_id, 
-				simulation_id,
+				planner_id,
 				title,
 				generate_series(
 					date_trunc('day', recurrence_start),
@@ -209,15 +209,15 @@ func (db *PostgresDB) UpdateRangeTransaction(rangeTransactionID uuid.UUID, newVa
 	return tx.Commit().Error
 }
 
-func (r *PostgresDB) DeleteRangeTransaction(userID, simulationID, rangeTransactionID uuid.UUID) error {
+func (r *PostgresDB) DeleteRangeTransaction(userID, plannerID, rangeTransactionID uuid.UUID) error {
 	tx := r.db.Begin()
 	if err := tx.Error; err != nil {
 		return err
 	}
 
 	if err := tx.Where(
-		"id = ? AND user_id = ? AND simulation_id = ?",
-		rangeTransactionID, userID, simulationID,
+		"id = ? AND user_id = ? AND planner_id = ?",
+		rangeTransactionID, userID, plannerID,
 	).Delete(&RangeTransaction{}).Error; err != nil {
 		tx.Rollback()
 		return err
@@ -234,9 +234,9 @@ func (r *PostgresDB) DeleteRangeTransaction(userID, simulationID, rangeTransacti
 	return tx.Commit().Error
 }
 
-func (r *PostgresDB) ListRangeTransactions(userID, simulationID uuid.UUID) ([]RangeTransaction, error) {
+func (r *PostgresDB) ListRangeTransactions(userID, plannerID uuid.UUID) ([]RangeTransaction, error) {
 	var rangeTransactions []RangeTransaction
-	result := r.db.Where("user_id = ? AND simulation_id = ?", userID, simulationID).
+	result := r.db.Where("user_id = ? AND planner_id = ?", userID, plannerID).
 		Find(&rangeTransactions).
 		Order("updated_at DESC")
 	if result.Error != nil {
@@ -270,7 +270,7 @@ func (r *PostgresDB) UpdateExpandedTransaction(expandedTransactionID uuid.UUID, 
 	return nil
 }
 
-func (db *PostgresDB) DeleteExpandedTransaction(userID, simulationID, expandedTransactionID uuid.UUID) error {
+func (db *PostgresDB) DeleteExpandedTransaction(userID, plannerID, expandedTransactionID uuid.UUID) error {
 	result := db.db.Where(`id = ?`, expandedTransactionID).
 		Delete(&ExpandedTransaction{})
 
@@ -283,9 +283,9 @@ func (db *PostgresDB) DeleteExpandedTransaction(userID, simulationID, expandedTr
 	return nil
 }
 
-func (db *PostgresDB) ListExpandedTransactions(userID, simulationID uuid.UUID) ([]ExpandedTransaction, error) {
+func (db *PostgresDB) ListExpandedTransactions(userID, plannerID uuid.UUID) ([]ExpandedTransaction, error) {
 	var transactions []ExpandedTransaction
-	result := db.db.Where("user_id = ? AND simulation_id = ?", userID, simulationID).
+	result := db.db.Where("user_id = ? AND planner_id = ?", userID, plannerID).
 		Find(&transactions)
 
 	if result.Error != nil {

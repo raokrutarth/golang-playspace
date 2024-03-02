@@ -3,7 +3,7 @@
 # All development environments will be Ubuntu-based
 
 # simplifies basic bash tools and python version
-FROM mcr.microsoft.com/vscode/devcontainers/go:1.19-buster
+FROM mcr.microsoft.com/vscode/devcontainers/go:1.22-bookworm
 ARG DEBIAN_FRONTEND=noninteractive
 
 # RUN will use bash

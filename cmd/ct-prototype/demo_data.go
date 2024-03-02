@@ -16,7 +16,7 @@ var (
 var bankRangeTxns = []RangeTransaction{
 	{
 		ID:                  u1,
-		SimulationID:        uuid.Nil,
+		PlannerID:           uuid.Nil,
 		UserID:              uuid.Nil,
 		Title:               "MyHome Rental Ltd.",
 		IncomeOrExpense:     "expense",
@@ -30,7 +30,7 @@ var bankRangeTxns = []RangeTransaction{
 	},
 	{
 		ID:                  u2,
-		SimulationID:        uuid.Nil,
+		PlannerID:           uuid.Nil,
 		UserID:              uuid.Nil,
 		Title:               "GE paycheck ACH",
 		IncomeOrExpense:     "income",
@@ -44,7 +44,7 @@ var bankRangeTxns = []RangeTransaction{
 	},
 	{
 		ID:                  u3,
-		SimulationID:        uuid.Nil,
+		PlannerID:           uuid.Nil,
 		UserID:              uuid.Nil,
 		Title:               "Side Business Investment",
 		IncomeOrExpense:     "expense",
@@ -61,7 +61,7 @@ var bankRangeTxns = []RangeTransaction{
 var bankOneTimeTxns = []ExpandedTransaction{
 	{
 		ID:              u4,
-		SimulationID:    uuid.Nil,
+		PlannerID:       uuid.Nil,
 		UserID:          uuid.Nil,
 		Title:           "Starting Balance",
 		IncomeOrExpense: "income",

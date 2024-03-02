@@ -1,0 +1,44 @@
+{{define "summaryTable"}}
+
+<h4>Repeating</h4>
+<table class="centered striped responsive-table z-depth-1">
+    <thead class="yellow lighten-2">
+        <tr>
+            <th>Title</th>
+            <th>Source</th>
+            <th>Type</th>
+            <th>Recurrence</th>
+            <th>Amount</th>
+            <th><i class="material-icons">more_vert</i></th>
+        </tr>
+    </thead>
+
+    {{ range .RangeTransactions }}
+    <tbody>
+        <tr>
+            <td>{{ .Title }}</td>
+            <td>{{ .Source }}</td>
+            <td>{{ .IncomeOrExpense }} ({{ .Category }})</td>
+            <td>Every {{ .RecurrenceEveryDays }} days. {{ dayDate .RecurrenceStart }} to {{ dayDate .RecurrenceEnd }} </td>
+            <td> ${{ .Amount }}</td>
+            <td class="left">
+                <div style="display: flex; flex-direction: row;">
+                    <a href="#!">
+                        <i class="tiny material-icons blue-text darken-4">edit</i>
+                    </a>
+
+                    <form action="/delete-range-transaction" method="POST" enctype="application/x-www-form-urlencoded">
+                        <input type="hidden" name="csrf-token" value="{{ $.CSRFToken }}">
+                        <input type="hidden" name="range_transaction_id" value="{{ .ID }}">
+                        <button class="btn" style="padding: 0; border: none; background: none;">
+                            <i class="tiny material-icons red-text darken-4">delete</i>
+                        </button>
+                    </form>
+                </div>
+            </td>
+        </tr>
+    </tbody>
+    {{ end }}
+</table>
+
+{{end}}

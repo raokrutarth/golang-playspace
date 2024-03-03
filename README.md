@@ -1,17 +1,9 @@
-# golang playspace
+# Golang Playspace
 
-Playspace for golang expriments, code snippets and go tooling.
+Playspace for golang experiments, code snippets and personal scrappy tooling. Each idea can:
 
-## Usage
-
-- spin up dev containers in VSCode <https://code.visualstudio.com/docs/containers/docker-compose>
-- copy and fill out the `dev.env` with `cp dev.env.example dev.env`
-- In the dev container, run `air` to start the BE.
-- May need to setup ports using the VS code "Ports" tab.
-- Open the BE on `localhost`.
-
-## Todo
-
+1. Turn into bigger projects that started off as a single `main.go` file in a directory under `cmd` and keep expanding until this code structure makes navigation and usage difficult. Then, the code is moved to a dedicated repository.
+1. Stick around as a reference to be used in other projects.
 
 ## References
 

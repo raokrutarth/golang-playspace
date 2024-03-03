@@ -5,11 +5,11 @@ import (
 	"time"
 
 	"github.com/go-co-op/gocron"
-	"github.com/raokrutarth/golang-playspace/common"
+	"github.com/raokrutarth/golang-playspace/pkg/logger"
 )
 
 func main() {
-	log := common.GetLogger()
+	log := logger.GetLogger()
 	taskName := flag.String("task-name", "", "specify a specific task instead of running as a background worker")
 	flag.Parse()
 	if *taskName != "" {

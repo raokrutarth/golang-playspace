@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"strconv"
 
 	"github.com/emersion/go-imap"
@@ -12,8 +11,6 @@ import (
 	"github.com/ozgio/strutil"
 	"github.com/rs/zerolog/log"
 )
-
-type Message map[string]string
 
 type MessageBody struct {
 	MIMEType string
@@ -53,7 +50,7 @@ func ParseMessageBody(msg *imap.Message) []*MessageBody {
 		switch h := p.Header.(type) {
 		case *mail.InlineHeader:
 			// This is the message's text (can be plain-text or HTML)
-			b, _ := ioutil.ReadAll(p.Body)
+			b, _ := io.ReadAll(p.Body)
 			log.Info().Msgf("Get message content of length %d", len(b))
 			output = append(output, &MessageBody{
 				MIMEType: "",
@@ -66,7 +63,7 @@ func ParseMessageBody(msg *imap.Message) []*MessageBody {
 	return output
 }
 
-func ParseMessage(imapMsg *imap.Message) Message {
+func ParseMessage(imapMsg *imap.Message) map[string]string {
 
 	parsed := map[string]string{}
 	parsed["uid"] = strconv.FormatUint(uint64(imapMsg.Uid), 10)

@@ -54,12 +54,12 @@ func credentials() (string, string, error) {
 }
 
 func ReadAndInitCredentials() {
-	cfg := GlobalConfig.Encrypt
+	cfg := getConfig().Encrypt
 	encSecret := cfg.Secret
 	log.Info().
 		Int("secret-len", len(cfg.Secret)).
 		Int("iv-len", len(cfg.Iv)).
-		Msg("Found configured encyption secret and initilization vector.")
+		Msg("Found configured encryption secret and initialization vector.")
 
 	username, password, _ := credentials()
 	log.Info().Int("uname-len", len(username)).Msg("Encrypting username and password.")

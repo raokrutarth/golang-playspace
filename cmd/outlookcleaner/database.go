@@ -14,8 +14,7 @@ var GormDB *gorm.DB
 
 // SetupDatabase - Connects the database
 func SetupDatabase(logMode bool) error {
-	DbConfig := GlobalConfig.Database
-
+	DbConfig := getConfig().Database
 	connectionString := fmt.Sprintf(
 		"host=%s port=%d user=%s dbname=%s password=%s sslmode=disable",
 		DbConfig.Hostname,

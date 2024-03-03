@@ -31,11 +31,11 @@ services:
     restart: unless-stopped
     logging:
       driver: syslog
-      
+
   # try out cockroach db: https://github.com/cockroachdb/cockroach/issues/107416#issuecomment-1648127261
 
   db-admin:
-    image: dpage/pgadmin4:6.19
+    image: dpage/pgadmin4:8.3
     env_file: .env
     restart: unless-stopped
     logging:
@@ -43,7 +43,7 @@ services:
 
   cache:
     image: redis:alpine
-    command: ["redis-server", "--requirepass", "9JXZW7W3hznCg8dR"]
+    command: [ "redis-server", "--requirepass", "9JXZW7W3hznCg8dR" ]
     restart: unless-stopped
     logging:
       driver: syslog

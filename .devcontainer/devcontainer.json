@@ -14,7 +14,7 @@
     // "overrideCommand": "",
     "forwardPorts": [
         // prefer to setup port forwarding from vscode and not in the docker compose.
-        // "smtp-server-dev:8025" // mailpit server ui. verify with docker compose file
+        "db-admin:80"
     ],
     "features": {
         "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}

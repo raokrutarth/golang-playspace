@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net/textproto"
 
 	"github.com/emersion/go-imap"
@@ -12,29 +13,31 @@ func BulkDelete(from []string) {
 	// var folderUnderUse string
 	var ok bool
 	var mailbox *Mailbox
-	var mailboxInfo *imap.MailboxInfo
+	var mailboxInfo imap.MailboxInfo
 	var messageIDs []uint32
 	// var seqSet *imap.SeqSet
 	var err error
 	// var accMgr *MailAccountManage
+	ctx := context.Background()
 
-	accountMgr, err := NewMailAccountManage(0)
+	accountMgrs, err := NewMailAccountConnections(ctx)
 	if err != nil {
 		log.Err(err).Msg("Failed to get account")
 		return
 	}
+	accountMgr := accountMgrs[0]
 	defer accountMgr.client.Logout() // TODO find a better place for it
 
 	// reread inbox messages to get stats
 	folderUnderUse := "Inbox/INBOX"
-	mailboxInfo, ok = lo.Find(accountMgr.mailboxes, func(m *imap.MailboxInfo) bool {
+	mailboxInfo, ok = lo.Find(accountMgr.mailboxes, func(m imap.MailboxInfo) bool {
 		return m.Name == folderUnderUse
 	})
 	if !ok {
 		log.Error().Msg("Inbox folder not found")
 		return
 	}
-	mailbox, err = NewMailbox(mailboxInfo, accountMgr.client)
+	mailbox, err = NewMailbox(&mailboxInfo, accountMgr.client)
 	if err != nil {
 		log.Err(err).Msg("Failed to initalize mailbox for folder")
 		return

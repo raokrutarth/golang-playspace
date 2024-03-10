@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"context"
 	"os"
 	"time"
 
@@ -9,6 +10,11 @@ import (
 
 //nolint:gochecknoglobals // protected by package
 var l *slog.Logger
+
+type loggerContextKeyType string
+
+//nolint:gochecknoglobals // protected by package
+var loggerContextKey loggerContextKeyType = "stdLogger"
 
 // GetLogger returns the configured logger
 func GetLogger() *slog.Logger {
@@ -35,4 +41,17 @@ func GetLogger() *slog.Logger {
 		slog.SetDefault(l)
 	}
 	return l
+}
+
+func GetLoggerFromContext(ctx context.Context) *slog.Logger {
+	loggerRaw := ctx.Value(loggerContextKey)
+	log, ok := loggerRaw.(*slog.Logger)
+	if !ok {
+		log = GetLogger()
+	}
+	return log
+}
+
+func ContextWithLogger(ctx context.Context, log *slog.Logger) context.Context {
+	return context.WithValue(ctx, loggerContextKey, log)
 }

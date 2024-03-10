@@ -1,84 +1,97 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"slices"
 
 	"github.com/emersion/go-imap"
 	"github.com/emersion/go-imap/client"
-	"github.com/rs/zerolog/log"
+	"github.com/raokrutarth/golang-playspace/pkg/logger"
 )
 
-type MailAccountManage struct {
+type MailAccountConnection struct {
 	client        *client.Client
-	mailboxes     []*imap.MailboxInfo
+	mailboxes     []imap.MailboxInfo
 	username      string
-	accountConfig *MailAccountConfig
+	accountConfig MailAccountConfig
 }
 
-func NewMailAccountManage(accountID int) (*MailAccountManage, error) {
-	log.Info().Int("accountID", accountID).Msg("Fetching account from config with ID")
-	c := getConfig()
-	if len(*c.Mail.Accounts) < accountID {
-		return nil, fmt.Errorf("%d is not a valid account ID", accountID)
-	}
-
-	account := (*c.Mail.Accounts)[accountID]
-
+// NewMailAccountConnections get all the mail account credentials and init the imap clients
+func NewMailAccountConnections(ctx context.Context) ([]MailAccountConnection, error) {
+	log := logger.GetLogger()
 	var err error
-	var username, password string
 
+	log.Info("initializing mail account connections")
+	c := getConfig()
+	if len(c.Mail.Accounts) == 0 {
+		return nil, fmt.Errorf("no mail accounts configured")
+	}
 	decryptionKey := c.Encrypt.Secret
 	decryptionIv := c.Encrypt.Iv
+	log.Info("identified credential decryption keys", "lenDecryptionKey", len(decryptionKey), "lenIV", len(decryptionIv))
 
-	log.Info().Int("accountID", accountID).
-		Str("username", account.EncUser).Msg("Ingesting emails")
+	connections := []MailAccountConnection{}
+	for _, account := range c.Mail.Accounts {
+		var username, password string
+		username, err = Decrypt(account.EncUser, decryptionKey, decryptionIv)
+		if err != nil {
+			return nil, fmt.Errorf("unable to decrypt username with error %w", err)
+		}
+		log = log.With("username", username)
+		password, err = Decrypt(account.EncPassword, decryptionKey, decryptionIv)
+		if err != nil {
+			return nil, fmt.Errorf("unable to decrypt password with error %w", err)
+		}
+		log.Info("decrypted imap credentials", "username", username, "lenPwd", len(password))
+		imapClient, err := client.DialTLS(fmt.Sprintf("%s:%d", account.Hostname, account.Port), nil)
+		if err != nil {
+			return nil, fmt.Errorf("unable to connect to mail server %s with error %w", account.Hostname, err)
+		}
+		if err = imapClient.Login(username, password); err != nil {
+			return nil, fmt.Errorf("unable to login to host %s with error %w", account.Hostname, err)
+		}
+		log.Info("successfully logged into account", "username", username)
 
-	username, err = Decrypt(account.EncUser, decryptionKey, decryptionIv)
-	if err != nil {
-		return nil, fmt.Errorf("unable to decrypt username with error %w", err)
+		folders, err := listMailboxes(logger.ContextWithLogger(ctx, log), account.EncUser, imapClient)
+		if err != nil {
+			return []MailAccountConnection{}, err
+		}
+		folderNames := []string{}
+		for _, m := range folders {
+			folderNames = append(folderNames, m.Name)
+		}
+		log.Info("listed folders in the mailbox", "folders", folderNames)
+
+		// validate the configs
+		for _, fn := range account.Ingest.Folders {
+			if !slices.Contains(folderNames, fn) {
+				return []MailAccountConnection{}, fmt.Errorf("folder %s does not exist for account %s", fn, username)
+			}
+		}
+		for _, fn := range account.Prune.Folders {
+			if !slices.Contains(folderNames, fn) {
+				return []MailAccountConnection{}, fmt.Errorf("folder %s does not exist for account %s", fn, username)
+			}
+		}
+		connections = append(connections, MailAccountConnection{
+			client:        imapClient,
+			username:      username,
+			mailboxes:     folders,
+			accountConfig: account,
+		})
 	}
-
-	password, err = Decrypt(account.EncPassword, decryptionKey, decryptionIv)
-	if err != nil {
-		return nil, fmt.Errorf("unable to decrypt password with error %w", err)
-	}
-
-	imapClient, err := client.DialTLS(fmt.Sprintf("%s:%d", account.Hostname, account.Port), nil)
-
-	if err != nil {
-		log.Err(err).Str("hostname", account.Hostname).Msg("Unable to connect to mail server.")
-		return nil, fmt.Errorf("unable to connect to mail server %s with error %w", account.Hostname, err)
-	}
-
-	log.Info().Str("hostname", account.Hostname).Msg("Successfully connected to mail server")
-
-	if err = imapClient.Login(username, password); err != nil {
-		log.Err(err).Str("hostname", account.Hostname).Str("username", account.EncUser).
-			Msg("Unable to log into to account.")
-		return nil, fmt.Errorf("unable to login to the account")
-	}
-	log.Info().Str("username", account.EncUser).Msg("Successfully logged into account.")
-
-	return &MailAccountManage{
-		client:        imapClient,
-		username:      username,
-		mailboxes:     listMailboxes(account.EncUser, imapClient),
-		accountConfig: &account,
-	}, nil
+	return connections, nil
 }
 
-func listMailboxes(username string, imapClient *client.Client) []*imap.MailboxInfo {
-	log.Info().Str("enc_username", username).Msg("Fetching all mailboxes")
-	mailboxes := make(chan *imap.MailboxInfo, 50)
-
-	if err := imapClient.List("", "*", mailboxes); err != nil {
-		log.Err(err).Str("enc_username", username).Msg("Unable to get folders from mailbox.")
-		return []*imap.MailboxInfo{}
+func listMailboxes(ctx context.Context, username string, imapClient *client.Client) ([]imap.MailboxInfo, error) {
+	mailboxes := []imap.MailboxInfo{}
+	mailboxesSink := make(chan *imap.MailboxInfo, 50)
+	if err := imapClient.List("", "*", mailboxesSink); err != nil {
+		return mailboxes, fmt.Errorf("unable to list folders for user %s with error %w", username, err)
 	}
-
-	result := []*imap.MailboxInfo{}
-	for m := range mailboxes {
-		result = append(result, m)
+	for m := range mailboxesSink {
+		mailboxes = append(mailboxes, *m)
 	}
-	return result
+	return mailboxes, nil
 }

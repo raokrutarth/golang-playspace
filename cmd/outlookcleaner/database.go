@@ -1,16 +1,38 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"time"
 
 	"github.com/rs/zerolog/log"
+	"gorm.io/datatypes"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
 // GormDB The database object that can be used by middleware to get data
 var GormDB *gorm.DB
+
+type Message struct {
+	gorm.Model
+	MessageID       string `gorm:"unique"`
+	From            string `gorm:"size:255,index"`
+	FromName        string
+	To              string `gorm:"size:255"`
+	Body            string
+	Subject         string
+	ReceivedAt      time.Time
+	RemoteDeletedAt time.Time
+	OpenedAt        sql.NullTime
+	MailBoxFolder   string
+	SizeBytes       uint32
+	IsSeen          bool
+	IsFlagged       bool
+	IsReceipt       bool
+	AttachmentNames string
+	Attributes      datatypes.JSON
+}
 
 // SetupDatabase - Connects the database
 func SetupDatabase(logMode bool) error {
@@ -40,7 +62,7 @@ func SetupDatabase(logMode bool) error {
 	return nil
 }
 
-func InitializeDB() {
+func init() {
 	if err := SetupDatabase(true); err != nil {
 		log.Fatal().Err(err).Msg("DB connection init failed with error")
 	}

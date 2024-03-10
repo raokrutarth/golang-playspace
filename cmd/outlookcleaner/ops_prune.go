@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"strings"
 
 	"github.com/emersion/go-imap"
@@ -11,30 +12,32 @@ import (
 
 func CustomPrune() {
 	var folderUnderUse string
-	var mailboxInfo *imap.MailboxInfo
+	var mailboxInfo imap.MailboxInfo
 	var ok bool
 	var mailbox *Mailbox
 	var messageIDs []uint32
 	var seqSet *imap.SeqSet
 	var err error
+	ctx := context.Background()
 
-	accountMgr, err := NewMailAccountManage(0)
+	accountMgrs, err := NewMailAccountConnections(ctx)
 	if err != nil {
 		log.Err(err).Msg("Failed to get account")
 		return
 	}
+	accountMgr := accountMgrs[0]
 	defer accountMgr.client.Logout() // TODO find a better place for it
 
 	// reread inbox messages to get stats
 	folderUnderUse = "Inbox/z-archive"
-	mailboxInfo, ok = lo.Find(accountMgr.mailboxes, func(m *imap.MailboxInfo) bool {
+	mailboxInfo, ok = lo.Find(accountMgr.mailboxes, func(m imap.MailboxInfo) bool {
 		return m.Name == folderUnderUse
 	})
 	if !ok {
 		log.Error().Msg("Inbox folder not found")
 		return
 	}
-	mailbox, err = NewMailbox(mailboxInfo, accountMgr.client)
+	mailbox, err = NewMailbox(&mailboxInfo, accountMgr.client)
 	if err != nil {
 		log.Err(err).Msg("Failed to initalize mailbox for folder")
 		return
@@ -143,30 +146,32 @@ func CustomPrune() {
 
 func CustomPrune2() {
 	// TODO: fix everything moved to z-archive
+	ctx := context.Background()
 
-	accountMgr, err := NewMailAccountManage(0)
+	accountMgrs, err := NewMailAccountConnections(ctx)
 	if err != nil {
 		log.Err(err).Msg("Failed to get account")
 		return
 	}
+	accountMgr := accountMgrs[0]
 	defer accountMgr.client.Logout() // TODO find a better place for it
 
 	var folderUnderUse string
-	var mailboxInfo *imap.MailboxInfo
+	var mailboxInfo imap.MailboxInfo
 	var ok bool
 	var mailbox *Mailbox
 	var messageIDs []uint32
 
 	// Move all incorrectly moved messages back to inbox
 	folderUnderUse = "Inbox/z-archive"
-	mailboxInfo, ok = lo.Find(accountMgr.mailboxes, func(m *imap.MailboxInfo) bool {
+	mailboxInfo, ok = lo.Find(accountMgr.mailboxes, func(m imap.MailboxInfo) bool {
 		return m.Name == folderUnderUse
 	})
 	if !ok {
 		log.Error().Msg("Inbox folder not found")
 		return
 	}
-	mailbox, err = NewMailbox(mailboxInfo, accountMgr.client)
+	mailbox, err = NewMailbox(&mailboxInfo, accountMgr.client)
 	if err != nil {
 		log.Err(err).Msg("Failed to initalize mailbox for folder")
 		return
@@ -193,8 +198,13 @@ func CustomPrune2() {
 
 func CustomPrune1() {
 	// TODO: fix everything moved to z-archive
-
-	accountMgr, err := NewMailAccountManage(0)
+	ctx := context.Background()
+	accountMgrs, err := NewMailAccountConnections(ctx)
+	if err != nil {
+		log.Err(err).Msg("Failed to get account")
+		return
+	}
+	accountMgr := accountMgrs[0]
 	defer accountMgr.client.Logout() // TODO find a better place for it
 	if err != nil {
 		log.Err(err).Msg("Failed to get account")
@@ -203,7 +213,7 @@ func CustomPrune1() {
 
 	folderUnderUse := "INBOX"
 
-	mailboxInfo, ok := lo.Find(accountMgr.mailboxes, func(m *imap.MailboxInfo) bool {
+	mailboxInfo, ok := lo.Find(accountMgr.mailboxes, func(m imap.MailboxInfo) bool {
 		return m.Name == folderUnderUse
 	})
 	if !ok {
@@ -211,7 +221,7 @@ func CustomPrune1() {
 		return
 	}
 
-	mailbox, err := NewMailbox(mailboxInfo, accountMgr.client)
+	mailbox, err := NewMailbox(&mailboxInfo, accountMgr.client)
 	if err != nil {
 		log.Err(err).Msg("Failed to initalize mailbox for folder")
 		return

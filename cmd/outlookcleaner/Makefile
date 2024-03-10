@@ -37,7 +37,7 @@ run:
 	go run cmd/cli/main.go prune
 
 auth-cli:
-	go run cmd/auth-cli/main.go
+	go run /workspaces/golang-playspace/cmd/outlookcleaner/main.go
 
 db-dev-in:
 	psql $(DEV_DB_URI)

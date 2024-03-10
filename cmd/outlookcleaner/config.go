@@ -30,7 +30,7 @@ type (
 	}
 
 	MailConfig struct {
-		Accounts *[]MailAccountConfig `mapstructure:"accounts"`
+		Accounts []MailAccountConfig `mapstructure:"accounts"`
 	}
 
 	MailAccountConfig struct {
@@ -48,7 +48,7 @@ type (
 )
 
 // getConfig returns the application configuration and secrets
-func getConfig() *Config {
+func getConfig() Config {
 	log := logger.GetLogger()
 
 	cfg := viper.New()
@@ -70,5 +70,5 @@ func getConfig() *Config {
 	}
 	var c Config
 	cfg.Unmarshal(&c)
-	return &c
+	return c
 }

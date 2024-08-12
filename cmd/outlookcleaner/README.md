@@ -1,8 +1,18 @@
-# Archive Service
+# SMTP mail cleaner
+
+- Read email using smtp/imap. load into DB so it can be queried by SQL.
+- Use SQL to identify emails that are not needed.
+- index it into the search layer before deletion.
 
 ## TODO
 
-### Immediate Steps
+### P0
+
+- ingesting of envelope is done. need to figure out how to get attachments & body without marking it as read.
+- update prune to consume a file of message IDs and batch delete them with filter for flagged/exceptions.
+- Fix: User is authenticated but not connected
+
+### P1
 
 - email categories.
   - vc emails
@@ -30,6 +40,77 @@
   - What are the products on deals in specific times?
     - At what prices?
     - Use NLP model?
+
+## Ideas
+
+- Testing
+  - use mailhog container with test account and bootstrap data.
+
+## Resources
+
+### Useful queries in pgadmin
+
+```sql
+
+-- top emails by size
+select 
+ "from", subject, (size_bytes/1000000.00) as size_mb, mail_box_folder
+from outlookcleaner_messages 
+order by size_bytes desc
+limit 20;
+
+-- top senders by size
+select 
+ "from", mail_box_folder, sum(size_bytes/1000000.00) as size_mb
+from outlookcleaner_messages 
+group by mail_box_folder, "from" 
+order by size_mb desc
+limit 20;
+```
+
+### Storage Engine
+
+- <https://gitea.com/a1012112796/test_go_imap/src/branch/master/imap.go> delete and mark read code.
+- `https://github.com/typesense/typesense#api-clients`: Typesense is a fast, typo-tolerant search engine for building delightful search experiences.
+- `https://github.com/valeriansaliou/sonic`: Rust based search system.
+- `https://github.com/groonga/groonga` written in C.
+- `https://crate.io/products/cratedb` good for metric and text store.
+- `https://github.com/meilisearch/meilisearch` Rust but not yet v1
+- `https://github.com/manticoresoftware/manticoresearch/` faster than ES. written in C++
+- `https://github.com/qdrant/qdrant` rust based
+- `https://pyvespa.readthedocs.io/en/latest/getting-started-pyvespa.html` not clear
+
+## dev commands
+
+- `migrate -source file://platform/migrations -database 'postgres://dev:djZMi4hGgSLpbc1B@db:5432/cashflow?sslmode=disable' up`
+- `psql postgres://dev:djZMi4hGgSLpbc1B@db:5432/cashflow`
+- `migrate create -ext sql -dir platform/migrations -seq add_user_json_col`
+- Download prod DB cert `curl --create-dirs -o $HOME/.postgresql/root.crt -O https://cockroachlabs.cloud/clusters/b44f6363-34a1-4935-be55-41fae9623fa6/cert`
+
+## Docs
+
+- Postgress migration operations `https://www.postgresql.org/docs/12/ddl.html`
+- Postgres common migrate ops `hhttps://www.postgresqltutorial.com/`
+- cockroachdb URI params `https://www.cockroachlabs.com/docs/v22.1/connection-parameters#additional-connection-parameters`
+
+### Core
+
+- `https://madflojo.medium.com/how-to-structure-a-golang-project-aad7095d70a` mvp main.go file
+- `https://github.com/reugn/go-quartz` in-memory scheduler.
+- `http://marcio.io/2015/07/handling-1-million-requests-per-minute-with-golang/` worker pool.
+- `https://github.com/hashicorp/terraform/blob/main/Makefile` go project layout and makefile
+- `https://github.com/hbollon/IGopher/blob/master/internal/config/config.go` config reading
+- `https://madflojo.medium.com/using-viper-with-consul-to-configure-golang-applications-eaa84394b8de` config lib
+- `https://pkg.go.dev/github.com/PuerkitoBio/goquery` html golang parser.
+  - `https://github.com/Arnesh07/golang-python-web-scraping/blob/master/go_scraper/scraper_par_gocolly_parallelism.go` sample code.
+- `https://golangcode.com/basic-web-scraper/` html parser snippet
+- alternative go imap email client `https://pkg.go.dev/github.com/mxk/go-imap/imap`
+
+### Infra
+
+- `https://medium.com/scum-gazeta/golang-production-ready-solution-part-3-8c9d8d2835c6` dockerfile
+
+### to sort
 
 - IMAP client API: <https://pkg.go.dev/github.com/emersion/go-imap@v1.2.1/client#Client>
 - str-utils
@@ -105,58 +186,3 @@
 ```txt
 Received:01/01/2017..01/01/2019
 ```
-
-## Functionality
-
-- Read email using smtp/imap.
-- clean/transform as necessary.
-- index it into the search layer.
-
-## Ideas
-
-- Testing
-  - use mailhog container with test account and bootstrap data.
-
-## Resources
-
-### Storage Engine
-
-- <https://gitea.com/a1012112796/test_go_imap/src/branch/master/imap.go> delete and mark read code.
-- `https://github.com/typesense/typesense#api-clients`: Typesense is a fast, typo-tolerant search engine for building delightful search experiences.
-- `https://github.com/valeriansaliou/sonic`: Rust based search system.
-- `https://github.com/groonga/groonga` written in C.
-- `https://crate.io/products/cratedb` good for metric and text store.
-- `https://github.com/meilisearch/meilisearch` Rust but not yet v1
-- `https://github.com/manticoresoftware/manticoresearch/` faster than ES. written in C++
-- `https://github.com/qdrant/qdrant` rust based
-- `https://pyvespa.readthedocs.io/en/latest/getting-started-pyvespa.html` not clear
-
-## dev commands
-
-- `migrate -source file://platform/migrations -database 'postgres://dev:djZMi4hGgSLpbc1B@db:5432/cashflow?sslmode=disable' up`
-- `psql postgres://dev:djZMi4hGgSLpbc1B@db:5432/cashflow`
-- `migrate create -ext sql -dir platform/migrations -seq add_user_json_col`
-- Download prod DB cert `curl --create-dirs -o $HOME/.postgresql/root.crt -O https://cockroachlabs.cloud/clusters/b44f6363-34a1-4935-be55-41fae9623fa6/cert`
-
-## Docs
-
-- Postgress migration operations `https://www.postgresql.org/docs/12/ddl.html`
-- Postgres common migrate ops `hhttps://www.postgresqltutorial.com/`
-- cockroachdb URI params `https://www.cockroachlabs.com/docs/v22.1/connection-parameters#additional-connection-parameters`
-
-### Core
-
-- `https://madflojo.medium.com/how-to-structure-a-golang-project-aad7095d70a` mvp main.go file
-- `https://github.com/reugn/go-quartz` in-memory scheduler.
-- `http://marcio.io/2015/07/handling-1-million-requests-per-minute-with-golang/` worker pool.
-- `https://github.com/hashicorp/terraform/blob/main/Makefile` go project layout and makefile
-- `https://github.com/hbollon/IGopher/blob/master/internal/config/config.go` config reading
-- `https://madflojo.medium.com/using-viper-with-consul-to-configure-golang-applications-eaa84394b8de` config lib
-- `https://pkg.go.dev/github.com/PuerkitoBio/goquery` html golang parser.
-  - `https://github.com/Arnesh07/golang-python-web-scraping/blob/master/go_scraper/scraper_par_gocolly_parallelism.go` sample code.
-- `https://golangcode.com/basic-web-scraper/` html parser snippet
-- alternative go imap email client `https://pkg.go.dev/github.com/mxk/go-imap/imap`
-
-### Infra
-
-- `https://medium.com/scum-gazeta/golang-production-ready-solution-part-3-8c9d8d2835c6` dockerfile

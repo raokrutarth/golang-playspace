@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"os"
 
 	"github.com/raokrutarth/golang-playspace/pkg/logger"
@@ -47,9 +48,14 @@ type (
 	}
 )
 
+var c *Config
+
 // getConfig returns the application configuration and secrets
-func getConfig() Config {
-	log := logger.GetLogger()
+func getConfig(ctx context.Context) Config {
+	if c != nil {
+		return *c
+	}
+	log := logger.GetLoggerFromContext(ctx)
 
 	cfg := viper.New()
 	cfg.AddConfigPath("./")
@@ -68,7 +74,12 @@ func getConfig() Config {
 			os.Exit(1)
 		}
 	}
-	var c Config
-	cfg.Unmarshal(&c)
-	return c
+	var newConfig Config
+	err = cfg.Unmarshal(&newConfig)
+	if err != nil {
+		log.Error("unable to unmarshal config", "error", err)
+		os.Exit(1)
+	}
+	c = &newConfig
+	return *c
 }

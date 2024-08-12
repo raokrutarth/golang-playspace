@@ -47,7 +47,10 @@
         }
     },
     "cSpell.words": [
+        "Gorm",
         "imap",
-        "Strs"
+        "outlookcleaner",
+        "Strs",
+        "strutil"
     ]
 }

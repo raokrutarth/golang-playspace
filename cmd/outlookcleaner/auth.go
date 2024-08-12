@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"crypto/aes"
 	"crypto/cipher"
 	"encoding/base64"
@@ -10,9 +11,24 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/rs/zerolog/log"
+	"github.com/raokrutarth/golang-playspace/pkg/logger"
 	"golang.org/x/term"
 )
+
+func AuthValidate(ctx context.Context) {
+	l := logger.GetLoggerFromContext(ctx)
+	var err error
+	connections, err := NewMailAccountConnections(ctx)
+	if err != nil {
+		l.Error("failed to get account connections", "error", err)
+		return
+	}
+	for _, c := range connections {
+		if err = c.client.Logout(); err != nil {
+			l.Error("failed logout", "error", err)
+		}
+	}
+}
 
 // TODO
 // https://codereview.stackexchange.com/questions/125846/encrypting-strings-in-golang
@@ -34,7 +50,7 @@ func encrypt(text, key, iv string) (string, error) {
 	return encode(cipherText), nil
 }
 
-func credentials() (string, string, error) {
+func promptForCredentials() (string, string, error) {
 	reader := bufio.NewReader(os.Stdin)
 
 	fmt.Print("Enter Username: ") // permit
@@ -44,7 +60,7 @@ func credentials() (string, string, error) {
 	}
 
 	fmt.Print("Enter Password: ") //permit
-	bytePassword, err := term.ReadPassword(int(syscall.Stdin))
+	bytePassword, err := term.ReadPassword(syscall.Stdin)
 	if err != nil {
 		return "", "", err
 	}
@@ -53,30 +69,30 @@ func credentials() (string, string, error) {
 	return strings.TrimSpace(username), strings.TrimSpace(password), nil
 }
 
-func ReadAndInitCredentials() {
-	cfg := getConfig().Encrypt
+func ReadAndInitCredentials(ctx context.Context) {
+	cfg := getConfig(ctx).Encrypt
+	l := logger.GetLoggerFromContext(ctx)
 	encSecret := cfg.Secret
-	log.Info().
-		Int("secret-len", len(cfg.Secret)).
-		Int("iv-len", len(cfg.Iv)).
-		Msg("Found configured encryption secret and initialization vector.")
+	l.Info("F\found configured encryption secret and initialization vector.",
+		"secretLen", len(cfg.Secret), "ivLen", len(cfg.Iv))
 
-	username, password, _ := credentials()
-	log.Info().Int("uname-len", len(username)).Msg("Encrypting username and password.")
+	username, password, _ := promptForCredentials()
+	l.Info("Encrypting username and password", "uname-len", len(username))
 
 	encText, err := encrypt(username, encSecret, cfg.Iv)
 	if err != nil {
-		log.Fatal().Err(err).Msg("Unable to encrypt password with error.")
+		l.Error("Unable to encrypt password with error.", "error", err)
+		return
 	}
-	log.Info().Msg("Encrypted username: " + encText)
+	fmt.Printf("Encrypted username: %s\n", encText)
 
 	encText, err = encrypt(password, encSecret, cfg.Iv)
 	if err != nil {
-		log.Fatal().Err(err).Msg("Unable to encrypt password with error.")
+		l.Error("Unable to encrypt password with error.", "error", err)
+		os.Exit(1)
 	}
-	log.Info().Msg("Encrypted password: " + encText)
-
-	log.Warn().Msg("Add the encrypted credentials above to the app config.")
+	fmt.Printf("Encrypted password: %s\n", encText)
+	l.Info("Add the encrypted credentials above to the app config.")
 }
 
 func Decode(s string) []byte {

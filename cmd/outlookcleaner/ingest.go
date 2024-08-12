@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/emersion/go-imap"
@@ -133,123 +134,143 @@ func (ingestor *accountIngestor) fetchNewMessages(folders []string) (result []*i
 
 func Ingest(ctx context.Context, connections []MailAccountConnection) error {
 	var err error
-	for _, conn := range connections {
+	for _, conn := range connections { // TODO iterate over accounts instead of connections since connects are flaky and need to be created anew each time
 		for _, mInfo := range conn.mailboxes {
+			// FIXME: reset connection due to unknown timeout
+			// t="2024-08-12 03:09:51" level=ERROR s=main.go:56 msg="failed to ingest" cmd=ingest error="unable to ingest mailbox with error unable to select folder Inbox/personal/cashtrac with error User is authenticated but not connected."
+			conn.client, err = newIMAPClient(ctx, conn.accountConfig)
+			if err != nil {
+				return fmt.Errorf("unable to create new imap client with error %w", err)
+			}
 			err = ingestMailbox(ctx, conn, mInfo)
 			if err != nil {
 				return fmt.Errorf("unable to ingest mailbox with error %w", err)
 			}
+			conn.client.Close()
+			time.Sleep(time.Second * 30)
 		}
 	}
 	return nil
 }
 
 func ingestMailbox(ctx context.Context, conn MailAccountConnection, mailboxInfo imap.MailboxInfo) error {
-	log := logger.GetLoggerFromContext(ctx).With("folderName", mailboxInfo.Name)
-
 	folderUnderUse := mailboxInfo.Name
+	l := logger.GetLoggerFromContext(ctx).With("folderName", folderUnderUse)
 	status, err := conn.client.Select(mailboxInfo.Name, true)
 	if err != nil {
 		return fmt.Errorf("unable to select folder %s with error %w", mailboxInfo.Name, err)
 	}
-	log.Info("selected a mailbox", "numMessages", status.Messages, "numUnread", status.Unseen, "recent", status.Recent)
+	l.Info("selected a mailbox", "numMessages", status.Messages, "numUnread", status.Unseen, "recent", status.Recent)
+	if status.Messages == 0 {
+		l.Info("no messages in folder")
+		return nil
+	}
 
 	var messageIDs []uint32
 	var seqSet *imap.SeqSet
-	messageIDs, err = conn.client.Search(&imap.SearchCriteria{})
+	messageIDs, err = conn.client.Search(&imap.SearchCriteria{
+		// Text: []string{"robinhood"}, // used to debug when risking deleting messages
+	})
 	if err != nil {
-		return fmt.Errorf("failed to search folder %s wit error %w", mailboxInfo.Name, err)
+		return fmt.Errorf("failed to search folder %s with error: %w", mailboxInfo.Name, err)
+	}
+	if len(messageIDs) == 0 {
+		l.Warn("no messages IDs in folder for search")
+		return nil
 	}
 
 	done := make(chan error, 1)
 	messages := make(chan *imap.Message, 10)
-	// var section imap.BodySectionName
+	// var section imap.BodySectionName // FIXME: fetching the body marks the message as read
 	go func() {
 		seqSet = new(imap.SeqSet)
 		seqSet.AddNum(messageIDs...)
 		items := []imap.FetchItem{
 			imap.FetchEnvelope, imap.FetchFlags, imap.FetchRFC822Header,
-			imap.FetchRFC822Size, imap.FetchUid,
+			imap.FetchRFC822Size, imap.FetchUid, imap.FetchInternalDate,
+			imap.FetchRFC822, imap.FetchRFC822Header, imap.FetchBodyStructure,
+
+			// FIXME: fetching the body marks the message as read
 			// imap.FetchBodyStructure,
 			// section.FetchItem(),
 		}
 		done <- conn.client.Fetch(seqSet, items, messages)
 	}()
 
-	log.Info("processing messages", "numMessageIDs", len(messageIDs))
+	l.Info("processing messages", "numMessageIds", len(messageIDs))
 	for msg := range messages {
-		// see header content for sender search.
-
-		log.Debug().Msgf("Got email for mailbox %s: %s", folderUnderUse, msg.Envelope.Subject)
-		log.Debug().Msgf(
-			"flags: %v, senders: %+v, from: %+v, reply-to: %+v, ID: %v, date: %v",
-			msg.Flags, msg.Envelope.Sender, msg.Envelope.From, msg.Envelope.ReplyTo, msg.Envelope.MessageId, msg.Envelope.Date,
+		sl := l.With("messageID", msg.Uid, "subject", msg.Envelope.Subject)
+		sl.Debug(
+			"got email from mailbox",
+			"subject", msg.Envelope.Subject, "flags", msg.Flags, "sender", msg.Envelope.Sender,
+			"from", msg.Envelope.From, "replyTo", msg.Envelope.ReplyTo, "ID", msg.Envelope.MessageId,
+			"date", msg.Envelope.Date, "sizeBytes", msg.Size, "uid", msg.Uid,
 		)
 
 		var dbRecord *Message
-		dbRecord, err = messageToDBRecord(msg, section)
+		dbRecord, err = messageToDBRecord(logger.ContextWithLogger(ctx, sl), msg)
 		if err != nil {
-			log.Err(err).Msg("failed to parse message with error")
+			sl.Error("failed to parse message with error", "error", err)
 			continue
 		}
 		dbRecord.MailBoxFolder = folderUnderUse
-
 		dbWriteResult := GormDB.Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "message_id"}},
 			UpdateAll: true,
 		}).Create(dbRecord) // pass pointer of data to Create
 
-		log.Debug().Msgf(
-			"Wrote record to database with numUpdates: %d",
-			dbWriteResult.RowsAffected, // returns inserted records count)
+		sl.Debug(
+			"wrote record to database",
+			"numUpdates", dbWriteResult.RowsAffected, // returns inserted records count)
 		)
 		if dbWriteResult.Error != nil {
-			log.Err(err).Msgf("Failed to write to DB with error for message %s", dbRecord.MessageID)
-			return
+			return fmt.Errorf("failed to write to DB with error for message: %w", dbWriteResult.Error)
+		}
+		if dbWriteResult.RowsAffected == 0 {
+			sl.Error("no record added to DB", "subject", msg.Envelope.Subject)
 		}
 	}
-
-	log.Info().Msgf("Finished processing all messages from folder %s", folderUnderUse)
 	if err = <-done; err != nil {
-		log.Err(err).Msg("Failed to list messages for states with error")
+		return fmt.Errorf("failed to fetch all messages with error: %w", err)
 	}
-
-	if err = accMgr.client.Logout(); err != nil {
-		log.Err(err).Msgf("Failed to log out of folder %s with error.", folderUnderUse)
-	}
+	l.Info("finished processing messages", "numMessageIds", len(messageIDs))
+	return nil
 }
 
-func messageToDBRecord(msg *imap.Message, section imap.BodySectionName) (*Message, error) {
+func messageToDBRecord(ctx context.Context, msg *imap.Message) (*Message, error) {
 	if msg == nil {
-		log.Error().Msg("Server didn't returned message")
+		return nil, fmt.Errorf("message is nil")
 	}
-	dbRecord := &Message{}
+	l := logger.GetLoggerFromContext(ctx)
 
 	var sender *imap.Address
-
 	switch sn, fn, rn := len(msg.Envelope.Sender), len(msg.Envelope.From), len(msg.Envelope.ReplyTo); {
 	case rn > 1:
-		log.Warn().Msgf("ignoring reply-to addresses %+v", msg.Envelope.ReplyTo[1:])
+		l.Debug("ignoring reply-to addresses", "otherReplyTo", msg.Envelope.ReplyTo[1:])
 		fallthrough
 	case rn == 1:
 		sender = msg.Envelope.ReplyTo[0]
 	case sn > 1:
-		log.Warn().Msgf("ignoring senders %+v", msg.Envelope.Sender[1:])
+		l.Debug("ignoring senders", "otherSenders", msg.Envelope.Sender[1:])
 		fallthrough
 	case sn == 1:
 		sender = msg.Envelope.Sender[0]
 	case fn > 1:
-		log.Warn().Msgf("ignoring from addresses %+v", msg.Envelope.From[1:])
+		l.Debug("ignoring from addresses", "otherFrom", msg.Envelope.From[1:])
 		fallthrough
 	case fn == 1:
 		sender = msg.Envelope.From[0]
 	default:
-		log.Error().Msgf("Message %s has no sender addresses", msg.Envelope.MessageId)
+		l.Error("message has no sender addresses", "messageID", msg.Envelope.MessageId)
 		sender = &imap.Address{MailboxName: "unknown", HostName: "unknown"}
 	}
+	dbRecord := &Message{}
 	dbRecord.MessageID = msg.Envelope.MessageId
 	dbRecord.From = sender.Address()
 	dbRecord.FromName = sender.PersonalName
+	if len(msg.Envelope.To) > 0 {
+		dbRecord.To = msg.Envelope.To[0].Address()
+	}
 	dbRecord.ReceivedAt = msg.Envelope.Date
 	dbRecord.Subject = strings.Map(func(r rune) rune {
 		if unicode.IsPrint(r) {
@@ -258,29 +279,28 @@ func messageToDBRecord(msg *imap.Message, section imap.BodySectionName) (*Messag
 		return -1
 	}, msg.Envelope.Subject)
 	dbRecord.SizeBytes = msg.Size
+	dbRecord.UID = msg.Uid
+	dbRecord.SeqNum = msg.SeqNum
 
-	_, isSeen := lo.Find(msg.Flags, func(f string) bool {
+	if _, isSeen := lo.Find(msg.Flags, func(f string) bool {
 		return f == imap.SeenFlag
-	})
-	if isSeen {
+	}); isSeen {
 		dbRecord.IsSeen = true
 	}
 
-	_, isFlagged := lo.Find(msg.Flags, func(f string) bool {
+	if _, isFlagged := lo.Find(msg.Flags, func(f string) bool {
 		return f == imap.FlaggedFlag || f == imap.ImportantFlag
-	})
-	if isFlagged {
+	}); isFlagged {
 		dbRecord.IsFlagged = true
 	}
 
-	isReceipt := lo.ContainsBy(strutil.Words(msg.Envelope.Subject), func(w string) bool {
+	if isReceipt := lo.ContainsBy(strutil.Words(msg.Envelope.Subject), func(w string) bool {
 		return lo.Contains([]string{
 			"refund", "shipped", "receipt", "confirmation",
 			"order", "confirm", "boarding", "delivered",
 			"reservation",
 		}, strings.ToLower(w))
-	})
-	if isReceipt {
+	}); isReceipt {
 		dbRecord.IsReceipt = true
 	}
 
@@ -290,20 +310,18 @@ func messageToDBRecord(msg *imap.Message, section imap.BodySectionName) (*Messag
 		if !strings.EqualFold(part.Disposition, "attachment") {
 			return true
 		}
-
 		filename, _ := part.Filename()
-		log.Info().Msgf("Message %+v has attachment of type %s, filename: %s",
-			path,
-			strings.ToLower(part.MIMEType+"/"+part.MIMESubType),
-			filename,
+		l.Debug(
+			"found attachment",
+			"filename", filename, "path", path, "type", strings.ToLower(part.MIMEType+"/"+part.MIMESubType),
 		)
-
 		attachments = append(attachments, filename)
 		return true
 	})
 	attachmentNames := strings.Join(attachments, "#")
 	dbRecord.AttachmentNames = attachmentNames
 
+	// FIXME: trying to read the body implicitly marks the message as seen
 	// bodyAttrs := map[string]string{}
 	// r := msg.GetBody(&section)
 	// if r == nil {

@@ -3,6 +3,7 @@ package logger
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"time"
 
 	"log/slog"
@@ -23,14 +24,21 @@ func GetLogger() *slog.Logger {
 			// Use the ReplaceAttr function on the handler options to reformat timestamps
 			ReplaceAttr: func(_ []string, a slog.Attr) slog.Attr {
 				// check that we are handling the time key
-				if a.Key != slog.TimeKey {
-					return a
+				if a.Key == slog.TimeKey {
+					t := a.Value.Time()
+					a.Value = slog.StringValue(t.UTC().Format(time.DateTime))
+					a.Key = "t"
 				}
-				t := a.Value.Time()
-				a.Value = slog.StringValue(t.UTC().Format(time.DateTime))
-				a.Key = "ts"
+				if a.Key == slog.SourceKey {
+					source, _ := a.Value.Any().(*slog.Source)
+					if source != nil {
+						source.File = filepath.Base(source.File)
+					}
+					a.Key = "s"
+				}
 				return a
 			},
+			AddSource: true,
 		}
 		l = slog.New(slog.NewTextHandler(os.Stdout, opts))
 		level := slog.LevelInfo

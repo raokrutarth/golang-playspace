@@ -1,11 +1,12 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"time"
 
-	"github.com/rs/zerolog/log"
+	"github.com/raokrutarth/golang-playspace/pkg/logger"
 	"gorm.io/datatypes"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -17,6 +18,8 @@ var GormDB *gorm.DB
 type Message struct {
 	gorm.Model
 	MessageID       string `gorm:"unique"`
+	UID             uint32
+	SeqNum          uint32
 	From            string `gorm:"size:255,index"`
 	FromName        string
 	To              string `gorm:"size:255"`
@@ -34,38 +37,51 @@ type Message struct {
 	Attributes      datatypes.JSON
 }
 
+// override table name for gorm
+func (Message) TableName() string {
+	return "outlookcleaner_messages"
+}
+
 // SetupDatabase - Connects the database
-func SetupDatabase(logMode bool) error {
-	DbConfig := getConfig().Database
+func SetupDatabase(ctx context.Context) error {
+	dbConfig := getConfig(ctx).Database
+	l := logger.GetLoggerFromContext(ctx)
 	connectionString := fmt.Sprintf(
 		"host=%s port=%d user=%s dbname=%s password=%s sslmode=disable",
-		DbConfig.Hostname,
-		DbConfig.Port,
-		DbConfig.User,
-		DbConfig.Database,
-		DbConfig.Password,
+		dbConfig.Hostname,
+		dbConfig.Port,
+		dbConfig.User,
+		dbConfig.Database,
+		dbConfig.Password,
 	)
-	log.Info().Str("hostname", DbConfig.Hostname).Msgf("DB Connected")
+	l.Info("connecting to database", "hostname", dbConfig.Hostname, "port",
+		dbConfig.Port, "user", dbConfig.User, "database", dbConfig.Database,
+		"pwdLen", len(dbConfig.Password),
+	)
 	db, errConnect := gorm.Open(postgres.Open(connectionString), &gorm.Config{})
 	if errConnect != nil {
 		return errConnect
 	}
 	sqlDB, err := db.DB()
 	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to ")
+		l.Error("failed to get sql db", "error", err)
+		return err
 	}
 	sqlDB.SetMaxIdleConns(10)
 	sqlDB.SetMaxOpenConns(20)
 	sqlDB.SetConnMaxLifetime(time.Hour)
-
 	GormDB = db
 	return nil
 }
 
-func init() {
-	if err := SetupDatabase(true); err != nil {
-		log.Fatal().Err(err).Msg("DB connection init failed with error")
+func initDB(ctx context.Context) error {
+	if err := SetupDatabase(ctx); err != nil {
+		return err
 	}
-	log.Info().Msg("Running auto migrations.")
-	GormDB.AutoMigrate(Message{})
+	logger.GetLoggerFromContext(ctx).Info("running auto migrations")
+	err := GormDB.AutoMigrate(Message{})
+	if err != nil {
+		return fmt.Errorf("failed to migrate database with error %w", err)
+	}
+	return nil
 }

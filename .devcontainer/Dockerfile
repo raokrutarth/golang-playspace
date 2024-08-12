@@ -59,7 +59,7 @@ RUN set -euo pipefail \
     && /usr/local/go/bin/go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest \
     && /usr/local/go/bin/go install github.com/swaggo/swag/cmd/swag@latest \
     && /usr/local/go/bin/go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest \
-    && /usr/local/go/bin/go install github.com/cosmtrek/air@latest
+    && /usr/local/go/bin/go install github.com/air-verse/air@latest
 
 ENTRYPOINT ["/bin/bash"]
 

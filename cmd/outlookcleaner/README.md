@@ -135,6 +135,7 @@ limit 20;
   - <https://github.com/emersion/go-imap/blob/master/backend/backendutil/search_test.go>
   - <https://github.com/emersion/go-imap/blob/master/search_test.go>
   - <https://github.com/stbenjam/go-imap-notmuch/blob/main/pkg/notmuch/search_test.go>
+  - https://github.com/xmapst/alps/blob/master/plugins/base/search.go
 
 - logging
   - Log to file + stdout using zerolog.multiwriter and lumberjack.
